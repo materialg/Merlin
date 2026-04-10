@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "SearchSession": {
+      "title": "Search Session",
+      "description": "A search query and its results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "prompt": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "plan": { "type": "string" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["idle", "searching", "completed", "error"] },
+        "attachments": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "urls": { "type": "array", "items": { "type": "string" } },
+        "candidates": { "type": "array", "items": { "$ref": "Candidate" } }
+      },
+      "required": ["id", "title", "prompt", "timestamp", "status"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "A candidate found during search",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "bio": { "type": "string" },
+        "platform": { "type": "string" },
+        "url": { "type": "string" },
+        "score": { "type": "number" },
+        "reasoning": { "type": "string" },
+        "impactSummary": { "type": "string" },
+        "location": { "type": "string" },
+        "education": { "type": "string" },
+        "socialLinks": { "type": "array", "items": { "type": "object" } },
+        "recentActivity": { "type": "array", "items": { "type": "object" } },
+        "scoringBreakdown": { "type": "object" }
+      },
+      "required": ["id", "name", "title", "url", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "SearchSession",
+      "description": "Search sessions for a user"
+    }
+  }
+}

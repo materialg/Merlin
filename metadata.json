@@ -1,0 +1,5 @@
+{
+  "name": "Merlin",
+  "description": "An AI-powered candidate search engine that extracts technical fingerprints from job descriptions and surfaces top engineers from GitHub, ArXiv, and HuggingFace.",
+  "requestFramePermissions": []
+}
