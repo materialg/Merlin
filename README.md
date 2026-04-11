@@ -1,6 +1,4 @@
-Welcome to Talentwizard.ai the builders of Merlin! 
-
-Check it out here => https://ai.studio/apps/f8d21a05-e34e-4d11-95c5-037831b99b49
+Welcome to Talentwizard.ai the makers of Merlin! 
 
 ## Run Locally
 
