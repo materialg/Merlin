@@ -1,8 +1,8 @@
-import { Paperclip, Link as LinkIcon, ArrowRight, X } from 'lucide-react';
-import React, { useState, useRef } from 'react';
+import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, Building2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface SearchInputProps {
-  onSearch: (prompt: string, attachments: File[], urls: string[]) => void;
+  onSearch: (prompt: string, attachments: File[], urls: string[], companyLink?: string) => void;
   isLoading: boolean;
 }
 
@@ -10,21 +10,48 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
+  const [companyLink, setCompanyLink] = useState<string | null>(null);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showCompanyInput, setShowCompanyInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  const [companyInput, setCompanyInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const totalAttachments = files.length + urls.length;
   const MAX_ATTACHMENTS = 6;
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowPlusMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((input.trim() || files.length > 0 || urls.length > 0) && !isLoading) {
-      onSearch(input, files, urls);
+    if ((input.trim() || files.length > 0 || urls.length > 0 || companyLink) && !isLoading) {
+      onSearch(input, files, urls, companyLink || undefined);
       setInput('');
       setFiles([]);
       setUrls([]);
+      setCompanyLink(null);
+      setShowPlusMenu(false);
       setShowUrlInput(false);
+      setShowCompanyInput(false);
+    }
+  };
+
+  const handleAddCompany = () => {
+    if (companyInput.trim()) {
+      setCompanyLink(companyInput.trim());
+      setCompanyInput('');
+      setShowCompanyInput(false);
+      setShowPlusMenu(false);
     }
   };
 
@@ -37,6 +64,7 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
       setUrls(prev => [...prev, urlInput.trim()]);
       setUrlInput('');
       setShowUrlInput(false);
+      setShowPlusMenu(false);
     }
   };
 
@@ -48,6 +76,7 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
         return;
       }
       setFiles(prev => [...prev, ...newFiles]);
+      setShowPlusMenu(false);
     }
   };
 
@@ -65,8 +94,17 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
         <form onSubmit={handleSubmit} className="relative">
           <div className="bg-[#FBFBF9] border border-gray-200 rounded-[28px] p-6 shadow-sm transition-all focus-within:border-gray-300 focus-within:shadow-md">
             {/* Attachment chips */}
-            {(files.length > 0 || urls.length > 0) && (
+            {(files.length > 0 || urls.length > 0 || companyLink) && (
               <div className="flex flex-wrap gap-2 mb-4">
+                {companyLink && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 shadow-sm">
+                    <Building2 className="w-3 h-3 text-gray-400" />
+                    <span className="truncate max-w-[150px]">Company: {companyLink.replace(/^https?:\/\//, '').split('/')[0]}</span>
+                    <button type="button" onClick={() => setCompanyLink(null)} className="hover:text-red-500">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
                 {files.map((file, i) => (
                   <div key={`file-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 shadow-sm">
                     <Paperclip className="w-3 h-3 text-gray-400" />
@@ -102,34 +140,60 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
             />
             
             <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={totalAttachments >= MAX_ATTACHMENTS}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                >
-                  <Paperclip className="w-4 h-4 text-gray-400" />
-                  Attach
-                </button>
-                
-                <div className="relative">
+              <div className="flex items-center gap-3">
+                <div className="relative" ref={menuRef}>
                   <button
                     type="button"
                     disabled={totalAttachments >= MAX_ATTACHMENTS}
-                    onClick={() => setShowUrlInput(!showUrlInput)}
-                    className={`flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${showUrlInput ? 'ring-2 ring-blue-100 border-blue-300' : ''}`}
+                    onClick={() => setShowPlusMenu(!showPlusMenu)}
+                    className="flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
-                    <LinkIcon className="w-4 h-4 text-gray-400" />
-                    URL
+                    <PlusCircle className="w-6 h-6" />
                   </button>
                   
-                  {showUrlInput && (
-                    <div className="absolute bottom-full left-0 mb-3 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl p-4 z-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Add URL</h4>
+                  {showPlusMenu && (
+                    <div className="absolute bottom-full left-0 mb-3 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        Attach PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUrlInput(true);
+                          setShowPlusMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <LinkIcon className="w-4 h-4 text-gray-400" />
+                        Add URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCompanyInput(true);
+                          setShowPlusMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Building2 className="w-4 h-4 text-gray-400" />
+                        Company
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {showUrlInput && (
+                  <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in duration-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Add Job URL</h4>
                         <button onClick={() => setShowUrlInput(false)} className="text-gray-400 hover:text-gray-600">
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
                       <input
@@ -138,7 +202,7 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
                         value={urlInput}
                         onChange={(e) => setUrlInput(e.target.value)}
                         placeholder="Paste a URL (e.g. Job Description)"
-                        className="w-full text-sm p-3 border border-gray-100 bg-gray-50 rounded-xl mb-3 focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
+                        className="w-full text-sm p-4 border border-gray-100 bg-gray-50 rounded-xl mb-4 focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -146,19 +210,74 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
                           }
                         }}
                       />
-                      <button
-                        type="button"
-                        onClick={handleAddUrl}
-                        className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
-                      >
-                        Add URL
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowUrlInput(false)}
+                          className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddUrl}
+                          className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+                        >
+                          Add URL
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {showCompanyInput && (
+                  <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in duration-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Add Company</h4>
+                        <button onClick={() => setShowCompanyInput(false)} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Paste a LinkedIn Company URL or Engineering Blog to calibrate Merlin's technical fingerprint.
+                      </p>
+                      <input
+                        autoFocus
+                        type="url"
+                        value={companyInput}
+                        onChange={(e) => setCompanyInput(e.target.value)}
+                        placeholder="https://linkedin.com/company/..."
+                        className="w-full text-sm p-4 border border-gray-100 bg-gray-50 rounded-xl mb-4 focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCompany();
+                          }
+                        }}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCompanyInput(false)}
+                          className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddCompany}
+                          className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
+                        >
+                          Set Reference
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {totalAttachments > 0 && (
-                  <span className="text-xs font-medium text-gray-400 ml-2">
+                  <span className="text-xs font-medium text-gray-400">
                     {totalAttachments}/{MAX_ATTACHMENTS}
                   </span>
                 )}
@@ -167,15 +286,12 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
               <button
                 type="submit"
                 disabled={isLoading || (!input.trim() && files.length === 0 && urls.length === 0)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#5850EC] text-white rounded-xl text-sm font-bold hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100"
+                className="flex items-center justify-center w-10 h-10 bg-[#5850EC] text-white rounded-full hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <>
-                    Search
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                  <ArrowRight className="w-5 h-5" />
                 )}
               </button>
             </div>
@@ -200,4 +316,5 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
     </div>
   );
 }
+
 

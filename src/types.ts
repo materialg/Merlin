@@ -5,6 +5,13 @@ export interface SocialActivity {
   url?: string;
 }
 
+export interface Education {
+  school: string;
+  degree?: string;
+  field?: string;
+  year?: string;
+}
+
 export interface Candidate {
   id: string;
   name: string;
@@ -15,9 +22,11 @@ export interface Candidate {
   score: number;
   reasoning: string;
   impactSummary: string;
+  company?: string;
   avatar?: string;
   location?: string;
   education?: string;
+  educationHistory?: Education[];
   socialLinks?: { platform: string; url: string }[];
   recentActivity?: SocialActivity[];
   scoringBreakdown?: {
@@ -28,6 +37,8 @@ export interface Candidate {
   };
 }
 
+export type ViewMode = 'classic' | 'list';
+
 export interface SearchSession {
   id: string;
   title: string;
@@ -35,8 +46,16 @@ export interface SearchSession {
   timestamp: string;
   plan: string;
   sources: string[];
+  fingerprint?: any;
   candidates: Candidate[];
   status: 'idle' | 'searching' | 'completed' | 'error';
   attachments: { name: string; type: string; url?: string }[];
   urls: string[];
+  companyLink?: string;
+  shortlistedIds?: string[];
+  rejectedIds?: string[];
+  sourcedCandidates?: Candidate[];
+  isShortlistLocked?: boolean;
+  sourcingStatus?: 'idle' | 'sourcing' | 'completed' | 'error';
+  feedbackMap?: Record<string, string>;
 }
