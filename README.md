@@ -1,12 +1,6 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+Welcome to Talentwizard.ai the builders of Merlin! 
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/f8d21a05-e34e-4d11-95c5-037831b99b49
+Check it out here => https://ai.studio/apps/f8d21a05-e34e-4d11-95c5-037831b99b49
 
 ## Run Locally
 
