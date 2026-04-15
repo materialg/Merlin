@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, RotateCcw, Linkedin, Github, Mail, Globe, MapPin, GraduationCap, Building2, Trash2, Plus, X, Check, Users, Briefcase, Pencil, Sparkles } from 'lucide-react';
+import { Search, Filter, RotateCcw, Linkedin, Github, Mail, Globe, MapPin, GraduationCap, Building2, Trash2, Plus, X, Check, Users, Briefcase, Pencil, Sparkles, RefreshCw, Star } from 'lucide-react';
 import { Contact, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { getEduCategory } from '../lib/utils';
@@ -11,9 +11,13 @@ interface ContactsViewProps {
   projects: Project[];
   onUpdateContact: (id: string, updates: Partial<Contact>) => void;
   onDeleteContact: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => void;
   onAddContactFromFile: (file: File) => void;
   onAddContactFromUrl: (url: string) => void;
+  onRefreshContact: (id: string) => void;
+  onBulkRefresh?: (ids: string[]) => void;
   isAddingContact?: boolean;
+  refreshingIds?: string[];
 }
 
 export default function ContactsView({ 
@@ -21,9 +25,13 @@ export default function ContactsView({
   projects, 
   onUpdateContact, 
   onDeleteContact,
+  onBulkDelete,
   onAddContactFromFile,
   onAddContactFromUrl,
-  isAddingContact = false
+  onRefreshContact,
+  onBulkRefresh,
+  isAddingContact = false,
+  refreshingIds = []
 }: ContactsViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -47,7 +55,7 @@ export default function ContactsView({
     c.company?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSocialSave = (links: { platform: string; url: string }[]) => {
+  const handleSocialSave = (links: { platform: string; url: string }[], anchorUrl?: string) => {
     if (!socialModal.contact) return;
     
     // Extract email if it exists in the links
@@ -57,8 +65,10 @@ export default function ContactsView({
     onUpdateContact(socialModal.contact.id, { 
       socialLinks: otherLinks,
       email: emailLink ? emailLink.url.replace('mailto:', '') : null,
+      anchorProfileUrl: anchorUrl,
       // Update main url if a LinkedIn or primary link is found
-      url: otherLinks.find(l => l.platform === 'LinkedIn')?.url || 
+      url: anchorUrl || 
+           otherLinks.find(l => l.platform === 'LinkedIn')?.url || 
            otherLinks.find(l => l.platform === 'GitHub')?.url || 
            otherLinks[0]?.url || 
            socialModal.contact.url
@@ -301,7 +311,31 @@ export default function ContactsView({
               <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Current Role</th>
               <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Education</th>
               <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Location</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider w-10"></th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-right">
+                {selectedIds.length > 0 && (
+                  <div className="flex items-center justify-end gap-1">
+                    <button 
+                      onClick={() => onBulkRefresh?.(selectedIds)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title={`Refresh ${selectedIds.length} selected profiles`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete ${selectedIds.length} contacts?`)) {
+                          onBulkDelete?.(selectedIds);
+                          setSelectedIds([]);
+                        }
+                      }}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title={`Delete ${selectedIds.length} selected contacts`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -322,7 +356,9 @@ export default function ContactsView({
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-gray-900">{contact.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-gray-900">{contact.name}</span>
+                    </div>
                     <div className="mt-1">
                       {getSocialIcons(contact, () => setSocialModal({ isOpen: true, contact }))}
                     </div>
@@ -456,12 +492,23 @@ export default function ContactsView({
                   </div>
                 </td>
                 <td className="py-4 px-4 text-right">
-                  <button 
-                    onClick={() => onDeleteContact(contact.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button 
+                      onClick={() => onRefreshContact(contact.id)}
+                      disabled={refreshingIds.includes(contact.id)}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
+                      title="Refresh profile data"
+                    >
+                      <RotateCcw className={`w-4 h-4 ${refreshingIds.includes(contact.id) ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button 
+                      onClick={() => onDeleteContact(contact.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Delete contact"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </motion.tr>
             ))}
@@ -479,6 +526,7 @@ export default function ContactsView({
         isOpen={socialModal.isOpen}
         onClose={() => setSocialModal({ isOpen: false, contact: null })}
         onSave={handleSocialSave}
+        initialAnchorUrl={socialModal.contact?.anchorProfileUrl}
         initialLinks={[
           ...(socialModal.contact?.socialLinks || []),
           ...(socialModal.contact?.email ? [{ platform: 'Email', url: socialModal.contact.email }] : []),

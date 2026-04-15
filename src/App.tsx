@@ -25,6 +25,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAddingContact, setIsAddingContact] = useState(false);
+  const [refreshingIds, setRefreshingIds] = useState<string[]>([]);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -726,11 +727,17 @@ export default function App() {
       // 2. Parse LinkedIn Profile
       const parsedCandidate = await parseLinkedInProfile(fileData);
       
+      // 3. Enrich for social links and activity
+      const enrichment = await enrichCandidateProfile({ name: parsedCandidate.name, url: parsedCandidate.url });
+      
       const candidate: Candidate = {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
-        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
-        recentActivity: [],
+        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+        ),
+        recentActivity: enrichment.recentActivity,
+        email: enrichment.email || parsedCandidate.email,
         score: 100,
         scoringBreakdown: {
           techMatch: 100,
@@ -757,11 +764,17 @@ export default function App() {
       // 1. Parse Candidate from URL
       const parsedCandidate = await parseCandidateFromUrl(url);
       
+      // 2. Enrich for social links and activity
+      const enrichment = await enrichCandidateProfile({ name: parsedCandidate.name, url });
+      
       const candidate: Candidate = {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
-        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
-        recentActivity: [],
+        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+        ),
+        recentActivity: enrichment.recentActivity,
+        email: enrichment.email || parsedCandidate.email,
         score: 100,
         scoringBreakdown: {
           techMatch: 100,
@@ -799,24 +812,64 @@ export default function App() {
       if (Object.keys(profileUpdates).length === 0) return;
 
       for (const session of sessions) {
-        const hasCandidate = session.candidates.some(c => (c.url && c.url === contact.url) || c.id === contact.id);
-        const hasSourced = session.sourcedCandidates?.some(c => (c.url && c.url === contact.url) || c.id === contact.id);
-
-        if (hasCandidate || hasSourced) {
+        const hasCandidate = session.candidates.some(c => c.url === contact.url || c.id === contact.id) ||
+                           session.sourcedCandidates?.some(c => c.url === contact.url || c.id === contact.id);
+        
+        if (hasCandidate) {
           const sessionRef = doc(db, 'users', user.uid, 'sessions', session.id);
           const updatedCandidates = session.candidates.map(c => 
-            ((c.url && c.url === contact.url) || c.id === contact.id) ? { ...c, ...profileUpdates } : c
+            (c.url === contact.url || c.id === contact.id) ? { ...c, ...profileUpdates } : c
           );
           const updatedSourced = (session.sourcedCandidates || []).map(c =>
-            ((c.url && c.url === contact.url) || c.id === contact.id) ? { ...c, ...profileUpdates } : c
+            (c.url === contact.url || c.id === contact.id) ? { ...c, ...profileUpdates } : c
           );
 
-          setDoc(sessionRef, cleanObject({
+          await setDoc(sessionRef, cleanObject({
             candidates: updatedCandidates,
             sourcedCandidates: updatedSourced
           }), { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
         }
       }
+    }
+  };
+
+  const handleRefreshContact = async (contactId: string) => {
+    if (!user) return;
+    
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact || !contact.url) return;
+
+    const sourceUrl = contact.anchorProfileUrl || contact.url;
+    setRefreshingIds(prev => [...prev, contactId]);
+
+    try {
+      // 1. Re-parse from URL to get latest title/company
+      const parsedCandidate = await parseCandidateFromUrl(sourceUrl);
+      
+      // 2. Enrich for social links and activity
+      const enrichment = await enrichCandidateProfile({ name: parsedCandidate.name, url: sourceUrl });
+      
+      const updates: Partial<Contact> = {
+        ...parsedCandidate,
+        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+        ),
+        recentActivity: enrichment.recentActivity,
+        email: enrichment.email || parsedCandidate.email || contact.email
+      };
+
+      await handleUpdateContact(contactId, updates);
+    } catch (error) {
+      console.error('Failed to refresh contact:', error);
+    } finally {
+      setRefreshingIds(prev => prev.filter(id => id !== contactId));
+    }
+  };
+
+  const handleBulkRefresh = async (ids: string[]) => {
+    // Refresh in sequence to avoid rate limits and too many concurrent requests
+    for (const id of ids) {
+      await handleRefreshContact(id);
     }
   };
 
@@ -826,6 +879,12 @@ export default function App() {
     const contactRef = doc(db, 'users', user.uid, 'contacts', contactId);
     await deleteDoc(contactRef)
       .catch(err => handleFirestoreError(err, OperationType.DELETE, contactRef.path));
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!user) return;
+    // Delete in parallel since these are simple firestore deletes
+    await Promise.all(ids.map(id => handleDeleteContact(id)));
   };
 
   const handleAddProject = async (name: string, description?: string) => {
@@ -1001,9 +1060,13 @@ export default function App() {
             projects={projects}
             onUpdateContact={handleUpdateContact}
             onDeleteContact={handleDeleteContact}
+            onBulkDelete={handleBulkDelete}
             onAddContactFromFile={handleAddContactFromFile}
             onAddContactFromUrl={handleAddContactFromUrl}
+            onRefreshContact={handleRefreshContact}
+            onBulkRefresh={handleBulkRefresh}
             isAddingContact={isAddingContact}
+            refreshingIds={refreshingIds}
           />
         ) : (
           <ProjectsView 

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Trash2, Globe, Github, Linkedin, BookOpen } from 'lucide-react';
+import { X, Plus, Trash2, Globe, Github, Linkedin, BookOpen, Star } from 'lucide-react';
 
 interface SocialLinksModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (links: { platform: string; url: string }[]) => void;
+  onSave: (links: { platform: string; url: string }[], anchorUrl?: string) => void;
   initialLinks: { platform: string; url: string }[];
+  initialAnchorUrl?: string;
   candidateName: string;
 }
 
@@ -39,8 +40,9 @@ const normalizePlatform = (platform: string, url: string): string => {
   return detectPlatform(url);
 };
 
-export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks, candidateName }: SocialLinksModalProps) {
+export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks, initialAnchorUrl, candidateName }: SocialLinksModalProps) {
   const [links, setLinks] = useState<{ platform: string; url: string }[]>([]);
+  const [anchorUrl, setAnchorUrl] = useState<string | undefined>(initialAnchorUrl);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,6 +51,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
         url: l.url
       }));
       setLinks(normalized.length > 0 ? normalized : [{ platform: 'LinkedIn', url: '' }]);
+      setAnchorUrl(initialAnchorUrl);
     }
     // Only run when the modal opens to prevent resetting user edits on parent re-renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,7 +82,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
 
   const handleSave = () => {
     const validLinks = links.filter(l => l.url.trim() !== '');
-    onSave(validLinks);
+    onSave(validLinks, anchorUrl);
     onClose();
   };
 
@@ -133,12 +136,26 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                       />
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleRemoveLink(index)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setAnchorUrl(anchorUrl === link.url ? undefined : link.url)}
+                      disabled={!link.url}
+                      className={`p-2 rounded-lg transition-all ${
+                        anchorUrl === link.url 
+                          ? 'text-yellow-500 bg-yellow-50 opacity-100' 
+                          : 'text-gray-300 hover:text-yellow-500 hover:bg-yellow-50 opacity-0 group-hover:opacity-100'
+                      }`}
+                      title={anchorUrl === link.url ? "Anchor profile (Source of Truth)" : "Set as anchor profile"}
+                    >
+                      <Star className={`w-4 h-4 ${anchorUrl === link.url ? 'fill-current' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveLink(index)}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
 

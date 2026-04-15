@@ -93,7 +93,7 @@ service cloud.firestore {
     }
 
     function isValidContact(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'title', 'bio', 'platform', 'url', 'score', 'reasoning', 'impactSummary', 'company', 'email', 'avatar', 'location', 'education', 'educationHistory', 'socialLinks', 'recentActivity', 'scoringBreakdown', 'addedAt', 'tags', 'projects']) &&
+      return hasOnlyAllowedFields(['id', 'name', 'title', 'bio', 'platform', 'url', 'score', 'reasoning', 'impactSummary', 'company', 'email', 'avatar', 'location', 'education', 'educationHistory', 'socialLinks', 'recentActivity', 'scoringBreakdown', 'addedAt', 'tags', 'projects', 'anchorProfileUrl']) &&
              data.id is string &&
              data.name is string && data.name.size() < 200 &&
              isValidDateString(data.addedAt);

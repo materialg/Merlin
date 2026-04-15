@@ -196,8 +196,13 @@ export async function enrichCandidateProfile(candidate: any) {
     use Google Search to find their other social profiles and personal presence.
     
     CRITICAL:
+    - The provided "Primary URL" is a HUMAN-VERIFIED ANCHOR for this person's identity and the ABSOLUTE SOURCE OF TRUTH.
+    - If search results for the name return multiple people, you MUST ONLY pick the ones that match the professional details (title, company, location) found at the Primary URL.
+    - If the Primary URL is a LinkedIn profile, DO NOT return a different LinkedIn profile as a "social link".
+    - If the Primary URL says "MTS @ Reflection AI", and search results show an "Allen Wang" at Tesla, you MUST IGNORE the Tesla result. The person at the Primary URL is the ONLY person we care about.
+    - Ensure all found profiles belong to the SAME person at the Primary URL.
+    - DO NOT mix profiles of different people with the same name.
     - Return DIRECT profile URLs (e.g., https://github.com/username). DO NOT return search result URLs.
-    - If you find a LinkedIn profile, ensure it's the correct one for the candidate based on their current role/company.
     
     PRIORITY:
     1. Personal Website / Portfolio / Blog (Look for domains like [name].com, [name].github.io, etc.)
@@ -423,8 +428,14 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
     Extract the candidate's information from the provided file.
     
     CRITICAL: 
-    - Identify their CURRENT title and CURRENT company. 
-    - If the profile shows multiple roles, pick the one that is currently active.
+    - The provided file data is the ONLY source of truth. 
+    - Identify their ABSOLUTE CURRENT title and ABSOLUTE CURRENT company. 
+    - ABSOLUTE PRIORITY: The role explicitly marked as "Present" or "Current" in the experience section.
+    - If there are multiple "Present" roles, choose the one that matches the profile headline or is listed at the very top of the experience list.
+    - IGNORE any role that has an end date (e.g., "2018 - 2022").
+    - IGNORE "Ex-", "Former", or "Past" markers in the headline (e.g., "Ex: Meta" means they NO LONGER work at Meta).
+    - If the headline says "MTS @ Reflection AI", the title is "MTS" and the company is "Reflection AI".
+    - "MTS" stands for Member of Technical Staff, a common senior title in AI companies.
     - Extract their bio, location, and education history.
     
     Return the result in JSON format matching the Candidate schema:
@@ -496,11 +507,21 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
 export async function parseCandidateFromUrl(url: string) {
   const systemInstruction = `
     You are an expert technical recruiter and profile analyst.
-    Given a URL (LinkedIn, GitHub, X, etc.), use Google Search to find the most up-to-date information about the person associated with this profile.
+    You are provided with a specific profile URL (LinkedIn, GitHub, X, etc.).
+    Your task is to extract the professional details for the EXACT person at this URL.
     
     CRITICAL: 
-    - Identify their CURRENT title and CURRENT company. 
-    - If the profile shows multiple roles, pick the one that is currently active (e.g., "Software Engineer at Google" instead of a past "Founder" role).
+    - The provided URL is a HUMAN-VERIFIED ANCHOR and the DEFINITIVE identity of the person. It is the ABSOLUTE SOURCE OF TRUTH.
+    - If the URL is from LinkedIn, prioritize LinkedIn's data structure and professional history.
+    - If the URL is from GitHub, prioritize GitHub's profile info and contribution history.
+    - DO NOT search for the name generally and pick the most famous person. 
+    - You MUST search for the URL itself to see its content.
+    - If the URL contains "allen-wang-0117", you are looking for THAT specific person.
+    - Identify their ABSOLUTE CURRENT title and ABSOLUTE CURRENT company. 
+    - "MTS" stands for Member of Technical Staff and is a high-level technical role. If you see "MTS @ Reflection AI", that is their current role.
+    - ABSOLUTE PRIORITY: The role explicitly marked as "Present" or "Current" in the experience section.
+    - IGNORE "Ex-", "Former", or "Past" markers in the headline. If it says "Ex: Meta", they do NOT work at Meta.
+    - If the profile says "MTS @ Reflection AI" and you find another "Allen Wang" at Tesla, the Tesla one is WRONG. Use the one at the URL.
     - Extract their bio, location, and education history.
     
     Extract:
@@ -521,7 +542,11 @@ export async function parseCandidateFromUrl(url: string) {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [{
-      parts: [{ text: `Analyze this profile URL and find the person's current professional details: ${url}` }]
+      parts: [{ text: `STRICT INSTRUCTION: You MUST only use information found at this specific HUMAN-VERIFIED ANCHOR URL: ${url}. 
+      DO NOT search for the name generally. 
+      Search for the content of this specific URL to verify the current role. 
+      If search results show multiple people with this name, the person at THIS URL is the only one that exists for this task.
+      Prioritize the data structure of the platform this URL belongs to (e.g., LinkedIn for professional history, GitHub for technical info).` }]
     }],
     tools: [
       { googleSearch: {} }

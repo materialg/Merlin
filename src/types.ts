@@ -27,6 +27,7 @@ export interface Candidate {
   avatar?: string;
   location?: string;
   education?: string;
+  anchorProfileUrl?: string;
   educationHistory?: Education[];
   socialLinks?: { platform: string; url: string }[];
   recentActivity?: SocialActivity[];

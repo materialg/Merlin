@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linkedin, Github, BookOpen, GraduationCap, Link, Mail, Pencil } from 'lucide-react';
+import { Linkedin, Github, BookOpen, GraduationCap, Link, Mail, Pencil, Star } from 'lucide-react';
 import { Candidate } from '../types';
 
 export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
@@ -80,6 +80,17 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
 
   return (
     <div className="flex items-center gap-1">
+      {candidate.anchorProfileUrl && (
+        <a 
+          href={candidate.anchorProfileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-1 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-all"
+          title="Source of Truth (Anchored Profile)"
+        >
+          <Star className="w-3.5 h-3.5 fill-current" />
+        </a>
+      )}
       {socialIcons}
       {emailLink}
       {onEdit && (
