@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, Clock, LogOut, LogIn, Trash2, Check, X, PanelLeftClose, Search } from 'lucide-react';
-import { SearchSession } from '../types';
+import { Plus, Clock, LogOut, LogIn, Trash2, Check, X, PanelLeftClose, Search, Users, Briefcase } from 'lucide-react';
+import { SearchSession, NavTab } from '../types';
 import { User } from 'firebase/auth';
 
 interface SidebarProps {
@@ -14,9 +14,24 @@ interface SidebarProps {
   onLogout: () => void;
   width: number;
   onCollapse: () => void;
+  activeNav: NavTab;
+  onNavChange: (nav: NavTab) => void;
 }
 
-export default function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSearch, onDeleteSession, user, onLogin, onLogout, width, onCollapse }: SidebarProps) {
+export default function Sidebar({ 
+  sessions, 
+  activeSessionId, 
+  onSelectSession, 
+  onNewSearch, 
+  onDeleteSession, 
+  user, 
+  onLogin, 
+  onLogout, 
+  width, 
+  onCollapse,
+  activeNav,
+  onNavChange
+}: SidebarProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -87,25 +102,6 @@ export default function Sidebar({ sessions, activeSessionId, onSelectSession, on
               <Plus className="w-4 h-4" />
               New search
             </button>
-            
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search history..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-200 rounded-full transition-colors"
-                >
-                  <X className="w-3 h-3 text-gray-400" />
-                </button>
-              )}
-            </div>
           </div>
         ) : (
           <button 
@@ -130,6 +126,27 @@ export default function Sidebar({ sessions, activeSessionId, onSelectSession, on
                   {filteredSessions.length}
                 </span>
               )}
+            </div>
+
+            <div className="px-2 mb-4">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search history..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-200 rounded-full transition-colors"
+                  >
+                    <X className="w-3 h-3 text-gray-400" />
+                  </button>
+                )}
+              </div>
             </div>
             
             {filteredSessions.map(session => (
@@ -201,6 +218,31 @@ export default function Sidebar({ sessions, activeSessionId, onSelectSession, on
                 </p>
               </div>
             )}
+
+            <div className="pt-4 mt-4 border-t border-gray-100 space-y-1">
+              <button
+                onClick={() => onNavChange('projects')}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition-all border ${
+                  activeNav === 'projects' 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
+                    : 'bg-transparent border-transparent hover:bg-gray-50 text-gray-600 hover:border-gray-100'
+                }`}
+              >
+                <Briefcase className="w-4 h-4" />
+                Projects
+              </button>
+              <button
+                onClick={() => onNavChange('contacts')}
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition-all border ${
+                  activeNav === 'contacts' 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
+                    : 'bg-transparent border-transparent hover:bg-gray-50 text-gray-600 hover:border-gray-100'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Contacts
+              </button>
+            </div>
           </>
         )}
         

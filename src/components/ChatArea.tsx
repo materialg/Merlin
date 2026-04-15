@@ -1,7 +1,9 @@
-import { Github, BookOpen, User, CheckCircle2, AlertCircle, Linkedin, Globe, MessageSquare, MapPin, GraduationCap, Sparkles, Bookmark, Facebook, LayoutList, LayoutGrid, ExternalLink, X, MessageSquareQuote, Building2, Pencil, ChevronDown, Plus, Link } from 'lucide-react';
+import { Github, BookOpen, User, CheckCircle2, AlertCircle, Linkedin, Globe, MessageSquare, MapPin, GraduationCap, Sparkles, Bookmark, Facebook, LayoutList, LayoutGrid, ExternalLink, X, MessageSquareQuote, Building2, Pencil, ChevronDown, Plus, Link, Mail, Check, Users } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SearchSession, Candidate, ViewMode } from '../types';
+import { SearchSession, Candidate, ViewMode, Contact } from '../types';
+import { getEduCategory } from '../lib/utils';
+import { getSocialIcons } from './SocialIcons';
 import FeedbackModal from './FeedbackModal';
 import SocialLinksModal from './SocialLinksModal';
 
@@ -10,7 +12,9 @@ interface ChatAreaProps {
   onToggleShortlist: (candidateId: string, feedback?: string) => void;
   onRejectCandidate: (candidateId: string, feedback?: string) => void;
   onUpdateTitle: (title: string) => void;
+  onUpdatePrompt: (prompt: string) => void;
   onUpdateCandidate: (candidateId: string, updates: Partial<Candidate>) => void;
+  onUpdateFeedback: (candidateId: string, feedback: string) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onLockShortlist: () => void;
@@ -18,14 +22,12 @@ interface ChatAreaProps {
   activeTab: 'results' | 'shortlist' | 'sourced';
   onActiveTabChange: (tab: 'results' | 'shortlist' | 'sourced') => void;
   isSidebarCollapsed?: boolean;
+  onAddContact?: (candidate: Candidate) => void;
+  contacts?: Contact[];
 }
 
-const getEduCategory = (degree: string): 'B' | 'M' | 'P' | null => {
-  const d = degree.toLowerCase();
-  if (d.includes('phd') || d.includes('ph.d') || d.includes('doctor') || d.includes('dphil')) return 'P';
-  if (d.includes('master') || d.includes('ms') || d.includes('ma') || d.includes('mba') || d.includes('m.s') || d.includes('m.a')) return 'M';
-  if (d.includes('bachelor') || d.includes('bs') || d.includes('ba') || d.includes('b.s') || d.includes('b.a') || d.includes('undergrad')) return 'B';
-  return null;
+const getEduCategoryLocal = (degree: string): 'B' | 'M' | 'P' | null => {
+  return getEduCategory(degree);
 };
 
 export default function ChatArea({ 
@@ -33,18 +35,26 @@ export default function ChatArea({
   onToggleShortlist, 
   onRejectCandidate, 
   onUpdateTitle, 
+  onUpdatePrompt,
   onUpdateCandidate, 
+  onUpdateFeedback,
   viewMode, 
   onViewModeChange,
   onLockShortlist,
   onSourceLookalikes,
   activeTab,
   onActiveTabChange,
-  isSidebarCollapsed
+  isSidebarCollapsed,
+  onAddContact,
+  contacts = []
 }: ChatAreaProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState('');
   const [expandedEducationId, setExpandedEducationId] = useState<string | null>(null);
+  const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeEduFilters, setActiveEduFilters] = useState<Record<string, string[]>>({});
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -96,60 +106,28 @@ export default function ChatArea({
     ? session.candidates.filter(c => !session.rejectedIds?.includes(c.id))
     : activeTab === 'shortlist'
       ? shortlistedCandidates
-      : session.sourcedCandidates || [];
+      : (session.sourcedCandidates || []).filter(c => !session.shortlistedIds?.includes(c.id));
 
-  const getSocialIcons = (candidate: Candidate) => {
-    const platforms = [
-      { key: 'linkedin', icon: <Linkedin className="w-3.5 h-3.5" />, label: 'LinkedIn' },
-      { key: 'github', icon: <Github className="w-3.5 h-3.5" />, label: 'GitHub' },
-      { 
-        key: 'x', 
-        icon: (
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3 h-3 fill-current">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
-          </svg>
-        ), 
-        label: 'X' 
-      },
-      { key: 'huggingface', icon: <span className="text-[10px] font-bold leading-none border rounded px-1 py-0.5 border-current">HF</span>, label: 'HuggingFace' },
-      { key: 'arxiv', icon: <BookOpen className="w-3.5 h-3.5" />, label: 'Arxiv' },
-      { key: 'scholar', icon: <GraduationCap className="w-3.5 h-3.5" />, label: 'Google Scholar' },
-      { key: 'website', icon: <Link className="w-3.5 h-3.5" />, label: 'Personal Website' }
-    ];
 
-    return platforms.map(platform => {
-      const link = candidate.socialLinks?.find(l => {
-        const p = l.platform.toLowerCase();
-        if (platform.key === 'x') return p.includes('twitter') || p.includes('x');
-        if (platform.key === 'huggingface') return p.includes('huggingface') || p.includes('hugging face');
-        if (platform.key === 'scholar') return p.includes('scholar') || p.includes('google scholar');
-        if (platform.key === 'website') return p.includes('website') || p.includes('portfolio') || p.includes('blog') || p.includes('personal');
-        return p.includes(platform.key);
-      });
-
-      const isMissing = !link;
-
-      return (
-        <a 
-          key={platform.key} 
-          href={link?.url || '#'} 
-          target={link ? "_blank" : undefined}
-          rel={link ? "noopener noreferrer" : undefined}
-          onClick={!link ? (e) => e.preventDefault() : undefined}
-          className={`relative transition-colors ${
-            isMissing ? 'text-gray-200 cursor-default' : 'text-gray-400 hover:text-blue-600'
-          }`}
-          title={isMissing ? `No ${platform.label} profile found` : platform.label}
-        >
-          {platform.icon}
-        </a>
-      );
-    });
-  };
 
   const handleSocialSave = (links: { platform: string; url: string }[]) => {
     if (!socialModal.candidate) return;
-    onUpdateCandidate(socialModal.candidate.id, { socialLinks: links });
+    
+    // Extract email if it exists in the links
+    const emailLink = links.find(l => l.platform.toLowerCase() === 'email');
+    const otherLinks = links.filter(l => l.platform.toLowerCase() !== 'email');
+    
+    onUpdateCandidate(socialModal.candidate.id, { 
+      socialLinks: otherLinks,
+      email: emailLink ? emailLink.url.replace('mailto:', '') : null,
+      // Update main url if a LinkedIn or primary link is found
+      url: otherLinks.find(l => l.platform === 'LinkedIn')?.url || 
+           otherLinks.find(l => l.platform === 'GitHub')?.url || 
+           otherLinks[0]?.url || 
+           socialModal.candidate.url
+    });
+
+    setSocialModal({ isOpen: false, candidate: null });
   };
 
   const handleShortlistClick = (candidate: Candidate) => {
@@ -157,11 +135,17 @@ export default function ChatArea({
     if (isShortlisted) {
       onToggleShortlist(candidate.id);
     } else {
+      // Add to shortlist immediately
+      onToggleShortlist(candidate.id);
+      // Then ask for optional feedback
       setFeedbackModal({ isOpen: true, candidate, type: 'shortlist' });
     }
   };
 
   const handleRejectClick = (candidate: Candidate) => {
+    // Reject immediately
+    onRejectCandidate(candidate.id);
+    // Then ask for optional feedback
     setFeedbackModal({ isOpen: true, candidate, type: 'reject' });
   };
 
@@ -178,14 +162,7 @@ export default function ChatArea({
   };
 
   const handleFeedbackSkip = () => {
-    if (!feedbackModal.candidate) return;
-    
-    if (feedbackModal.type === 'shortlist') {
-      onToggleShortlist(feedbackModal.candidate.id);
-    } else {
-      onRejectCandidate(feedbackModal.candidate.id);
-    }
-    
+    // We already toggled/rejected immediately, so just close the modal
     setFeedbackModal({ ...feedbackModal, isOpen: false });
   };
 
@@ -196,6 +173,18 @@ export default function ChatArea({
       setEditedTitle(session?.title || '');
     }
     setIsEditingTitle(false);
+  };
+
+  const handleEditPrompt = () => {
+    setEditedPrompt(session?.prompt || '');
+    setIsEditingPrompt(true);
+  };
+
+  const handleSavePrompt = () => {
+    if (editedPrompt.trim() && editedPrompt !== session?.prompt) {
+      onUpdatePrompt(editedPrompt.trim());
+    }
+    setIsEditingPrompt(false);
   };
 
   const toggleEduFilter = (candidateId: string, category: 'B' | 'M' | 'P') => {
@@ -237,7 +226,14 @@ export default function ChatArea({
         isOpen={socialModal.isOpen}
         onClose={() => setSocialModal({ ...socialModal, isOpen: false })}
         onSave={handleSocialSave}
-        initialLinks={socialModal.candidate?.socialLinks || []}
+        initialLinks={[
+          ...(socialModal.candidate?.socialLinks || []),
+          ...(socialModal.candidate?.email ? [{ platform: 'Email', url: socialModal.candidate.email }] : []),
+          // Include main url if not already in socialLinks
+          ...(socialModal.candidate?.url && !socialModal.candidate.socialLinks?.some(l => l.url === socialModal.candidate?.url) 
+            ? [{ platform: 'Website', url: socialModal.candidate.url }] 
+            : [])
+        ]}
         candidateName={socialModal.candidate?.name || ''}
       />
       
@@ -323,11 +319,54 @@ export default function ChatArea({
               className="flex flex-col gap-6 max-w-6xl mx-auto"
             >
               {/* User Prompt */}
-              <div className="flex justify-end">
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-tr-none max-w-[80%] shadow-sm">
-                  <p className="text-sm">{session.prompt}</p>
+              {activeTab === 'results' && (
+                <div className={`flex ${isEditingPrompt ? 'w-full' : 'justify-end'}`}>
+                  <div className={`bg-blue-600 text-white px-6 py-4 rounded-2xl shadow-lg group relative transition-all duration-300 ${
+                    isEditingPrompt ? 'w-full' : 'max-w-[80%] rounded-tr-none'
+                  }`}>
+                    {isEditingPrompt ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black uppercase tracking-widest opacity-70">Update Search Criteria</h4>
+                          <Sparkles className="w-4 h-4 opacity-50" />
+                        </div>
+                        <textarea
+                          value={editedPrompt}
+                          onChange={(e) => setEditedPrompt(e.target.value)}
+                          className="w-full bg-blue-700/50 text-white border border-blue-400/30 rounded-xl p-4 text-base focus:ring-2 focus:ring-white/20 outline-none min-h-[150px] resize-none placeholder-blue-300"
+                          placeholder="Refine your search criteria..."
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => setIsEditingPrompt(false)}
+                            className="px-4 py-2 text-sm font-bold text-white hover:bg-white/10 rounded-xl transition-all"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSavePrompt}
+                            className="px-6 py-2 text-sm font-bold bg-white text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-md active:scale-95"
+                          >
+                            Update Search
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm leading-relaxed pr-6">{session.prompt}</p>
+                        <button 
+                          onClick={handleEditPrompt}
+                          className="absolute top-2 right-2 p-1 opacity-0 group-hover:opacity-100 hover:bg-blue-500 rounded transition-all"
+                          title="Edit search criteria"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Status & Plan */}
               <div className="space-y-4">
@@ -415,7 +454,7 @@ export default function ChatArea({
               {/* Candidates View */}
               {viewMode === 'classic' ? (
                 <div className="space-y-4">
-                  {(activeTab === 'results' ? activeCandidates : shortlistedCandidates).map((candidate, idx) => {
+                  {activeCandidates.map((candidate, idx) => {
                     const isShortlisted = session.shortlistedIds?.includes(candidate.id);
                     return (
                       <motion.div
@@ -436,7 +475,7 @@ export default function ChatArea({
                                   <button 
                                     onClick={() => setSocialModal({ isOpen: true, candidate })}
                                     className="p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-all"
-                                    title="Edit social profiles"
+                                    title="Edit profiles"
                                   >
                                     <Pencil className="w-3 h-3" />
                                   </button>
@@ -456,6 +495,21 @@ export default function ChatArea({
                               >
                                 <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
                               </button>
+                              
+                              {onAddContact && (
+                                <button 
+                                  onClick={() => onAddContact(candidate)}
+                                  disabled={contacts.some(c => c.id === candidate.id)}
+                                  className={`p-2 rounded-lg transition-all border ${
+                                    contacts.some(c => c.id === candidate.id)
+                                      ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-100 cursor-default' 
+                                      : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:bg-green-50 hover:border-green-100'
+                                  }`}
+                                  title={contacts.some(c => c.id === candidate.id) ? "Added to contacts" : "Add to contacts"}
+                                >
+                                  <Users className={`w-4 h-4 ${contacts.some(c => c.id === candidate.id) ? 'fill-current' : ''}`} />
+                                </button>
+                              )}
                               
                               {activeTab === 'results' && (
                                 <button 
@@ -478,14 +532,6 @@ export default function ChatArea({
                               </p>
                             </div>
                           </div>
-
-                          {/* Feedback display if exists */}
-                          {session.feedbackMap?.[candidate.id] && (
-                            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 flex gap-3">
-                              <MessageSquareQuote className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                              <p className="text-xs text-blue-700 italic">"{session.feedbackMap[candidate.id]}"</p>
-                            </div>
-                          )}
 
                           {/* Sub-info */}
                           <div className="space-y-2">
@@ -594,6 +640,49 @@ export default function ChatArea({
                                 </AnimatePresence>
                               </div>
                             )}
+
+                            {activeTab === 'shortlist' && (
+                              <div className="space-y-2">
+                                <button 
+                                  onClick={() => setExpandedNotesId(expandedNotesId === candidate.id ? null : candidate.id)}
+                                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors group"
+                                >
+                                  <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center group-hover:bg-blue-50">
+                                    <MessageSquareQuote className="w-3 h-3 text-gray-400 group-hover:text-blue-500" />
+                                  </div>
+                                  <span className="font-medium text-gray-500 group-hover:text-blue-600">Notes</span>
+                                  <ChevronDown className={`w-3 h-3 transition-transform ${expandedNotesId === candidate.id ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                <AnimatePresence>
+                                  {expandedNotesId === candidate.id && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      className="overflow-hidden pl-6 space-y-2 border-l-2 border-gray-100 ml-2"
+                                    >
+                                      <div className="relative">
+                                        <textarea
+                                          value={session.feedbackMap?.[candidate.id] || ''}
+                                          onChange={(e) => onUpdateFeedback(candidate.id, e.target.value)}
+                                          placeholder="Add a note about this candidate..."
+                                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none"
+                                          autoFocus
+                                        />
+                                        <button 
+                                          onClick={() => setExpandedNotesId(null)}
+                                          className="absolute bottom-2 right-2 p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm transition-all"
+                                          title="Finish editing"
+                                        >
+                                          <Check className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            )}
                           </div>
 
                           {/* Bottom Match Bar */}
@@ -615,15 +704,18 @@ export default function ChatArea({
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-gray-100">
+                        <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Match</th>
                         <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Name</th>
                         <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Title</th>
                         <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Education</th>
-                        <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Match</th>
+                        {activeTab === 'shortlist' && (
+                          <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Notes</th>
+                        )}
                         <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(activeTab === 'results' ? activeCandidates : shortlistedCandidates).map((candidate, idx) => {
+                      {activeCandidates.map((candidate, idx) => {
                         const isShortlisted = session.shortlistedIds?.includes(candidate.id);
                         return (
                           <motion.tr
@@ -634,17 +726,17 @@ export default function ChatArea({
                             className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
                           >
                             <td className="py-4 px-4">
+                              <div className="flex justify-center">
+                                <div className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">
+                                  {candidate.score}%
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-gray-900">{candidate.name}</span>
                                 <div className="flex items-center gap-2 mt-1">
-                                  {getSocialIcons(candidate)}
-                                  <button 
-                                    onClick={() => setSocialModal({ isOpen: true, candidate })}
-                                    className="p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-all"
-                                    title="Edit social profiles"
-                                  >
-                                    <Pencil className="w-3 h-3" />
-                                  </button>
+                                  {getSocialIcons(candidate, () => setSocialModal({ isOpen: true, candidate }))}
                                 </div>
                               </div>
                             </td>
@@ -750,13 +842,44 @@ export default function ChatArea({
                                 </div>
                               )}
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="flex justify-center">
-                                <div className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">
-                                  {candidate.score}%
+                            {activeTab === 'shortlist' && (
+                              <td className="py-4 px-4 min-w-[240px]">
+                                <div className="relative group/note">
+                                  {editingNoteId === candidate.id ? (
+                                    <div className="relative">
+                                      <textarea
+                                        value={session.feedbackMap?.[candidate.id] || ''}
+                                        onChange={(e) => onUpdateFeedback(candidate.id, e.target.value)}
+                                        placeholder="Add a note..."
+                                        className="w-full bg-white border border-blue-200 rounded-lg p-2 text-[11px] text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none shadow-sm"
+                                        autoFocus
+                                      />
+                                      <button 
+                                        onClick={() => setEditingNoteId(null)}
+                                        className="absolute bottom-2 right-2 p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm transition-all flex items-center gap-1"
+                                        title="Finish editing"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      onClick={() => setEditingNoteId(candidate.id)}
+                                      className="w-full bg-gray-50/50 border border-gray-100 rounded-lg p-2 text-[11px] text-gray-700 min-h-[60px] cursor-pointer transition-all hover:bg-white hover:border-blue-100 relative group"
+                                    >
+                                      {session.feedbackMap?.[candidate.id] ? (
+                                        <p className="whitespace-pre-wrap pr-6">{session.feedbackMap[candidate.id]}</p>
+                                      ) : (
+                                        <span className="text-gray-400 italic">Add a note...</span>
+                                      )}
+                                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Pencil className="w-3 h-3 text-gray-400" />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            </td>
+                              </td>
+                            )}
                             <td className="py-4 px-4 text-right">
                               <div className="flex items-center justify-end gap-1">
                                 <button 
@@ -770,6 +893,21 @@ export default function ChatArea({
                                 >
                                   <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
                                 </button>
+
+                                {onAddContact && (
+                                  <button 
+                                    onClick={() => onAddContact(candidate)}
+                                    disabled={contacts.some(c => c.id === candidate.id)}
+                                    className={`p-2 rounded-lg transition-all ${
+                                      contacts.some(c => c.id === candidate.id)
+                                        ? 'text-green-600 bg-green-50 cursor-default' 
+                                        : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                                    }`}
+                                    title={contacts.some(c => c.id === candidate.id) ? "Added to contacts" : "Add to contacts"}
+                                  >
+                                    <Users className={`w-4 h-4 ${contacts.some(c => c.id === candidate.id) ? 'fill-current' : ''}`} />
+                                  </button>
+                                )}
                                 
                                 {activeTab === 'results' && (
                                   <button 
@@ -811,8 +949,8 @@ export default function ChatArea({
                         <Bookmark className="w-6 h-6 text-amber-600" />
                       </div>
                       <h3 className="text-lg font-bold text-amber-900 mb-2">Shortlist Not Locked</h3>
-                      <p className="text-sm text-amber-700 leading-relaxed">
-                        To source candidates, you first need to refine your search and **lock in at least 10 candidates** in your shortlist.
+                      <p className="text-sm text-amber-700 leading-relaxed text-center">
+                        Add 10 candidates to your shortlist to begin sourcing
                       </p>
                     </div>
                   ) : (

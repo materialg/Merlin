@@ -23,6 +23,7 @@ export interface Candidate {
   reasoning: string;
   impactSummary: string;
   company?: string;
+  email?: string;
   avatar?: string;
   location?: string;
   education?: string;
@@ -38,6 +39,21 @@ export interface Candidate {
 }
 
 export type ViewMode = 'classic' | 'list';
+export type NavTab = 'search' | 'contacts' | 'projects';
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  candidateIds: string[];
+}
+
+export interface Contact extends Candidate {
+  addedAt: string;
+  tags?: string[];
+  projects?: string[];
+}
 
 export interface SearchSession {
   id: string;

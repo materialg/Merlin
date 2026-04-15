@@ -10,10 +10,11 @@ interface SocialLinksModalProps {
   candidateName: string;
 }
 
-const PLATFORMS = ['LinkedIn', 'GitHub', 'X', 'HuggingFace', 'Arxiv', 'Google Scholar', 'Personal Website'];
+const PLATFORMS = ['LinkedIn', 'GitHub', 'X', 'HuggingFace', 'Arxiv', 'Google Scholar', 'Personal Website', 'Email'];
 
 const detectPlatform = (url: string): string => {
   const u = url.toLowerCase();
+  if (u.includes('@') || u.startsWith('mailto:')) return 'Email';
   if (u.includes('linkedin.com')) return 'LinkedIn';
   if (u.includes('github.com')) return 'GitHub';
   if (u.includes('twitter.com') || u.includes('x.com')) return 'X';
@@ -25,6 +26,7 @@ const detectPlatform = (url: string): string => {
 
 const normalizePlatform = (platform: string, url: string): string => {
   const p = platform.toLowerCase();
+  if (p === 'email' || url.includes('@') || url.startsWith('mailto:')) return 'Email';
   if (p.includes('linkedin')) return 'LinkedIn';
   if (p.includes('github')) return 'GitHub';
   if (p.includes('twitter') || p === 'x') return 'X';
@@ -48,7 +50,9 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
       }));
       setLinks(normalized.length > 0 ? normalized : [{ platform: 'LinkedIn', url: '' }]);
     }
-  }, [isOpen, initialLinks]);
+    // Only run when the modal opens to prevent resetting user edits on parent re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleAddLink = () => {
     setLinks([...links, { platform: 'LinkedIn', url: '' }]);
@@ -94,11 +98,11 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Edit Social Profiles</h3>
+                <h3 className="text-lg font-bold text-gray-900">Edit Profiles</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Updating links for {candidateName}</p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
@@ -110,11 +114,11 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
               {links.map((link, index) => (
                 <div key={index} className="flex gap-3 items-start group">
                   <div className="flex-1 space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-12 gap-3">
                       <select
                         value={link.platform}
                         onChange={(e) => handleUpdateLink(index, 'platform', e.target.value)}
-                        className="col-span-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="col-span-5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       >
                         {PLATFORMS.map(p => (
                           <option key={p} value={p}>{p}</option>
@@ -125,7 +129,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                         value={link.url}
                         onChange={(e) => handleUpdateLink(index, 'url', e.target.value)}
                         placeholder="https://..."
-                        className="col-span-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="col-span-7 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       />
                     </div>
                   </div>

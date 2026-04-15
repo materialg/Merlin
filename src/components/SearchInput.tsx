@@ -1,12 +1,13 @@
-import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, Building2 } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, Building2, RotateCcw } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 interface SearchInputProps {
   onSearch: (prompt: string, attachments: File[], urls: string[], companyLink?: string) => void;
+  onRestart?: () => void;
   isLoading: boolean;
 }
 
-export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
+export default function SearchInput({ onSearch, onRestart, isLoading }: SearchInputProps) {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -89,8 +90,8 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
   };
 
   return (
-    <div className="p-8 bg-white">
-      <div className="max-w-5xl mx-auto">
+    <div className="p-8 bg-white w-full">
+      <div className="max-w-7xl mx-auto">
         <form onSubmit={handleSubmit} className="relative">
           <div className="bg-[#FBFBF9] border border-gray-200 rounded-[28px] p-6 shadow-sm transition-all focus-within:border-gray-300 focus-within:shadow-md">
             {/* Attachment chips */}
@@ -283,17 +284,30 @@ export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading || (!input.trim() && files.length === 0 && urls.length === 0)}
-                className="flex items-center justify-center w-10 h-10 bg-[#5850EC] text-white rounded-full hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100"
-              >
-                {isLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <ArrowRight className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                {onRestart && (
+                  <button
+                    type="button"
+                    onClick={onRestart}
+                    disabled={isLoading}
+                    className="flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-blue-600 hover:border-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    title="Resource"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </button>
                 )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isLoading || (!input.trim() && files.length === 0 && urls.length === 0)}
+                  className="flex items-center justify-center w-10 h-10 bg-[#5850EC] text-white rounded-full hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100"
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           

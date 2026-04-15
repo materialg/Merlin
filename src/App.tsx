@@ -1,23 +1,30 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { PanelLeft } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import SearchInput from './components/SearchInput';
-import { SearchSession, Candidate, ViewMode } from './types';
-import { extractTechnicalFingerprint, searchCandidates, enrichCandidateProfile, rescoreCandidate, sourceLookalikes } from './services/gemini';
+import ContactsView from './components/ContactsView';
+import ProjectsView from './components/ProjectsView';
+import { SearchSession, Candidate, ViewMode, NavTab, Contact, Project } from './types';
+import { extractTechnicalFingerprint, searchCandidates, enrichCandidateProfile, rescoreCandidate, sourceLookalikes, parseLinkedInProfile, parseCandidateFromUrl } from './services/gemini';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './lib/firebase';
+import { cleanObject } from './lib/utils';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, getDocFromServer, deleteDoc } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<SearchSession[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeNav, setActiveNav] = useState<NavTab>('search');
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('classic');
   const [activeTab, setActiveTab] = useState<'results' | 'shortlist' | 'sourced'>('results');
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isAddingContact, setIsAddingContact] = useState(false);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -102,6 +109,44 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const contactsRef = collection(db, 'users', user.uid, 'contacts');
+    const q = query(contactsRef, orderBy('addedAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newContacts = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Contact));
+      setContacts(newContacts);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/contacts`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const projectsRef = collection(db, 'users', user.uid, 'projects');
+    const q = query(projectsRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newProjects = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Project));
+      setProjects(newProjects);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/projects`);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const handleSearch = async (prompt: string, files: File[], urls: string[], companyLink?: string) => {
     if (!user) {
       await loginWithGoogle();
@@ -156,10 +201,23 @@ export default function App() {
       // Handle potential array wrapping or direct array
       const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
 
-      let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => ({
-        id: `${sessionId}-${i}`,
-        ...r
-      }));
+      let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
+        const url = r.url || '';
+        let platform = (r.platform || 'other').toLowerCase() as any;
+        if (platform === 'other' && url) {
+          if (url.includes('linkedin.com')) platform = 'linkedin';
+          else if (url.includes('github.com')) platform = 'github';
+          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
+          else if (url.includes('huggingface.co')) platform = 'huggingface';
+          else if (url.includes('arxiv.org')) platform = 'arxiv';
+        }
+        return {
+          id: `${sessionId}-${i}`,
+          ...r,
+          platform,
+          socialLinks: url ? [{ platform, url }] : []
+        };
+      });
 
       // Sort by score descending
       candidates.sort((a, b) => b.score - a.score);
@@ -179,7 +237,9 @@ export default function App() {
             const updatedCandidates = currentSession.candidates.map(c => 
               c.id === candidate.id ? {
                 ...c,
-                socialLinks: enrichment.socialLinks,
+                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                ),
                 recentActivity: enrichment.recentActivity
               } : c
             );
@@ -200,6 +260,89 @@ export default function App() {
     }
   };
 
+  const handleRestartSearch = async () => {
+    if (!activeSession || !user) return;
+    
+    const sessionId = activeSession.id;
+    const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
+    
+    await setDoc(sessionRef, { 
+      status: 'searching',
+      candidates: [],
+      sourcedCandidates: [],
+      sourcingStatus: 'idle',
+      isShortlistLocked: false,
+      shortlistedIds: [],
+      rejectedIds: [],
+      feedbackMap: {}
+    }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+    try {
+      let fingerprint = activeSession.fingerprint;
+      
+      if (!fingerprint) {
+        fingerprint = await extractTechnicalFingerprint(activeSession.prompt, [], activeSession.urls, activeSession.companyLink);
+      }
+
+      const results = await searchCandidates(fingerprint);
+      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
+
+      let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
+        const url = r.url || '';
+        let platform = (r.platform || 'other').toLowerCase() as any;
+        if (platform === 'other' && url) {
+          if (url.includes('linkedin.com')) platform = 'linkedin';
+          else if (url.includes('github.com')) platform = 'github';
+          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
+          else if (url.includes('huggingface.co')) platform = 'huggingface';
+          else if (url.includes('arxiv.org')) platform = 'arxiv';
+        }
+        return {
+          id: `${sessionId}-${i}-${Date.now()}`,
+          ...r,
+          platform,
+          socialLinks: url ? [{ platform, url }] : []
+        };
+      });
+
+      candidates.sort((a, b) => b.score - a.score);
+
+      await setDoc(sessionRef, { candidates, status: 'completed' }, { merge: true })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+      // Enrich each candidate
+      for (const candidate of candidates) {
+        try {
+          const enrichment = await enrichCandidateProfile(candidate);
+          setSessions(prev => {
+            const currentSession = prev.find(s => s.id === sessionId);
+            if (!currentSession) return prev;
+            
+            const updatedCandidates = currentSession.candidates.map(c => 
+              c.id === candidate.id ? {
+                ...c,
+                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                ),
+                recentActivity: enrichment.recentActivity
+              } : c
+            );
+
+            setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
+              .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+            return prev;
+          });
+        } catch (enrichError) {
+          console.error(`Enrichment failed for ${candidate.name}:`, enrichError);
+        }
+      }
+    } catch (error) {
+      console.error('Restart failed:', error);
+      await setDoc(sessionRef, { status: 'error' }, { merge: true })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+    }
+  };
+
   const handleUpdateTitle = async (sessionId: string, newTitle: string) => {
     if (!user) return;
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
@@ -210,38 +353,199 @@ export default function App() {
   const handleUpdateCandidate = async (sessionId: string, candidateId: string, updates: Partial<Candidate>) => {
     if (!user) return;
     
-    const session = sessions.find(s => s.id === sessionId);
-    if (!session) return;
+    // 1. Get the latest session data from state to perform the update
+    const currentSession = sessions.find(s => s.id === sessionId);
+    if (!currentSession) return;
 
-    let updatedCandidates = session.candidates.map(c => 
+    const updatedCandidates = currentSession.candidates.map(c => 
+      c.id === candidateId ? { ...c, ...updates } : c
+    );
+
+    const updatedSourced = (currentSession.sourcedCandidates || []).map(c =>
       c.id === candidateId ? { ...c, ...updates } : c
     );
 
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
     
-    // If social links were updated, trigger a re-score
+    // 2. Save the immediate updates first to ensure they are persisted
+    await setDoc(sessionRef, cleanObject({ 
+      candidates: updatedCandidates,
+      sourcedCandidates: updatedSourced
+    }), { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+    // 2.5 Update matching contact if it exists
+    const originalCandidate = currentSession.candidates.find(c => c.id === candidateId) || 
+                             currentSession.sourcedCandidates?.find(c => c.id === candidateId);
+    
+    if (originalCandidate) {
+      const contact = contacts.find(ct => (ct.url && ct.url === originalCandidate.url) || ct.id === originalCandidate.id);
+      if (contact) {
+        const contactRef = doc(db, 'users', user.uid, 'contacts', contact.id);
+        // Only sync profile fields, not session-specific ones
+        const profileUpdates = { ...updates };
+        delete (profileUpdates as any).score;
+        delete (profileUpdates as any).reasoning;
+        delete (profileUpdates as any).impactSummary;
+        delete (profileUpdates as any).scoringBreakdown;
+        
+        if (Object.keys(profileUpdates).length > 0) {
+          await setDoc(contactRef, cleanObject(profileUpdates), { merge: true })
+            .catch(err => handleFirestoreError(err, OperationType.UPDATE, contactRef.path));
+        }
+      }
+    }
+
+    // 3. If social links were updated, trigger a re-score in the background
     if (updates.socialLinks) {
-      const candidate = updatedCandidates.find(c => c.id === candidateId);
-      if (candidate && session.fingerprint) {
+      const candidate = updatedCandidates.find(c => c.id === candidateId) || updatedSourced.find(c => c.id === candidateId);
+      if (candidate && currentSession.fingerprint) {
         try {
-          const rescore = await rescoreCandidate(candidate, session.fingerprint);
-          updatedCandidates = updatedCandidates.map(c => 
-            c.id === candidateId ? { 
-              ...c, 
-              score: rescore.score,
-              scoringBreakdown: rescore.scoringBreakdown,
-              reasoning: rescore.reasoning,
-              impactSummary: rescore.impactSummary
-            } : c
-          );
+          const rescore = await rescoreCandidate(candidate, currentSession.fingerprint);
+          
+          // Fetch the latest state AGAIN before applying rescore results to avoid overwriting other concurrent updates
+          setSessions(prev => {
+            const latestSession = prev.find(s => s.id === sessionId);
+            if (!latestSession) return prev;
+
+            const finalCandidates = latestSession.candidates.map(c => 
+              c.id === candidateId ? { 
+                ...c, 
+                score: rescore.score,
+                scoringBreakdown: rescore.scoringBreakdown,
+                reasoning: rescore.reasoning,
+                impactSummary: rescore.impactSummary
+              } : c
+            );
+
+            const finalSourced = (latestSession.sourcedCandidates || []).map(c => 
+              c.id === candidateId ? { 
+                ...c, 
+                score: rescore.score,
+                scoringBreakdown: rescore.scoringBreakdown,
+                reasoning: rescore.reasoning,
+                impactSummary: rescore.impactSummary
+              } : c
+            );
+
+            setDoc(sessionRef, cleanObject({ 
+              candidates: finalCandidates,
+              sourcedCandidates: finalSourced
+            }), { merge: true })
+              .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+            return prev;
+          });
         } catch (error) {
           console.error('Failed to rescore candidate:', error);
         }
       }
     }
+  };
 
-    await setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
-      .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+  const handleUpdatePrompt = async (sessionId: string, newPrompt: string) => {
+    if (!user) return;
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
+    
+    // 1. Reset session state for new search with new prompt
+    await setDoc(sessionRef, { 
+      prompt: newPrompt,
+      status: 'searching',
+      candidates: [],
+      sourcedCandidates: [],
+      sourcingStatus: 'idle',
+      isShortlistLocked: false,
+      shortlistedIds: [],
+      rejectedIds: [],
+      feedbackMap: {}
+    }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+    try {
+      // 2. Re-extract Fingerprint with new prompt
+      const fingerprint = await extractTechnicalFingerprint(newPrompt, [], session.urls, session.companyLink);
+      
+      await setDoc(sessionRef, {
+        title: (fingerprint.title && fingerprint.title.trim()) ? fingerprint.title.trim() : session.title,
+        plan: fingerprint.plan,
+        sources: fingerprint.sources,
+        fingerprint
+      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+      // 3. Search Candidates
+      const results = await searchCandidates(fingerprint);
+      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
+
+      const candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
+        const url = r.url || '';
+        let platform = (r.platform || 'other').toLowerCase() as any;
+        if (platform === 'other' && url) {
+          if (url.includes('linkedin.com')) platform = 'linkedin';
+          else if (url.includes('github.com')) platform = 'github';
+          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
+          else if (url.includes('huggingface.co')) platform = 'huggingface';
+          else if (url.includes('arxiv.org')) platform = 'arxiv';
+        }
+        return {
+          id: `${sessionId}-${i}-${Date.now()}`,
+          ...r,
+          platform,
+          socialLinks: url ? [{ platform, url }] : []
+        };
+      });
+
+      candidates.sort((a, b) => b.score - a.score);
+
+      await setDoc(sessionRef, { candidates, status: 'completed' }, { merge: true })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+      // 4. Enrich each candidate
+      for (const candidate of candidates) {
+        try {
+          const enrichment = await enrichCandidateProfile(candidate);
+          setSessions(prev => {
+            const currentSession = prev.find(s => s.id === sessionId);
+            if (!currentSession) return prev;
+            
+            const updatedCandidates = currentSession.candidates.map(c => 
+              c.id === candidate.id ? {
+                ...c,
+                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
+                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                ),
+                recentActivity: enrichment.recentActivity
+              } : c
+            );
+
+            setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
+              .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+            return prev;
+          });
+        } catch (enrichError) {
+          console.error(`Enrichment failed for ${candidate.name}:`, enrichError);
+        }
+      }
+    } catch (error) {
+      console.error('Update search failed:', error);
+      await setDoc(sessionRef, { status: 'error' }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+    }
+  };
+
+  const handleUpdateFeedback = async (sessionId: string, candidateId: string, feedback: string) => {
+    if (!user) return;
+    
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
+    await setDoc(sessionRef, cleanObject({
+      feedbackMap: {
+        ...(session.feedbackMap || {}),
+        [candidateId]: feedback
+      }
+    }), { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
   };
 
   const handleToggleShortlist = async (sessionId: string, candidateId: string, feedback?: string) => {
@@ -253,9 +557,13 @@ export default function App() {
     const currentShortlisted = session.shortlistedIds || [];
     const isShortlisted = currentShortlisted.includes(candidateId);
     
-    const newShortlisted = isShortlisted 
-      ? currentShortlisted.filter(id => id !== candidateId)
-      : [...currentShortlisted, candidateId];
+    let newShortlisted = currentShortlisted;
+    
+    if (!feedback || !isShortlisted) {
+      newShortlisted = isShortlisted 
+        ? currentShortlisted.filter(id => id !== candidateId)
+        : [...currentShortlisted, candidateId];
+    }
 
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
     const updateData: any = { shortlistedIds: newShortlisted };
@@ -267,7 +575,7 @@ export default function App() {
       };
     }
 
-    await setDoc(sessionRef, updateData, { merge: true })
+    await setDoc(sessionRef, cleanObject(updateData), { merge: true })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
   };
 
@@ -278,9 +586,11 @@ export default function App() {
     if (!session) return;
 
     const currentRejected = session.rejectedIds || [];
-    if (currentRejected.includes(candidateId)) return;
+    const isAlreadyRejected = currentRejected.includes(candidateId);
+    
+    if (isAlreadyRejected && !feedback) return;
 
-    const newRejected = [...currentRejected, candidateId];
+    const newRejected = isAlreadyRejected ? currentRejected : [...currentRejected, candidateId];
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
     
     const updateData: any = { rejectedIds: newRejected };
@@ -291,45 +601,45 @@ export default function App() {
       };
     }
 
-    // Optimistically update and trigger re-search
-    await setDoc(sessionRef, updateData, { merge: true })
+    // Optimistically update
+    await setDoc(sessionRef, cleanObject(updateData), { merge: true })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
 
-    // Trigger re-search with feedback
-    // In a real app, we'd pass the rejected IDs to the search function to calibrate
-    // For this demo, we'll just simulate sourcing one more candidate
-    try {
-      const fingerprint = await extractTechnicalFingerprint(session.prompt, [], session.urls);
-      const results = await searchCandidates({ 
-        ...fingerprint, 
-        rejectedIds: newRejected,
-        feedbackMap: updateData.feedbackMap || session.feedbackMap 
-      });
-      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
-      
-      // Find a candidate not already in the list
-      const newCandidateData = candidatesArray.find((c: any) => !session.candidates.some(existing => existing.name === c.name));
-      
-      if (newCandidateData) {
-        const newCandidate: Candidate = {
-          id: `${sessionId}-${Date.now()}`,
-          ...newCandidateData
-        };
+    // Only trigger re-search if it's a NEW rejection
+    if (!isAlreadyRejected) {
+      try {
+        const fingerprint = await extractTechnicalFingerprint(session.prompt, [], session.urls);
+        const results = await searchCandidates({ 
+          ...fingerprint, 
+          rejectedIds: newRejected,
+          feedbackMap: updateData.feedbackMap || session.feedbackMap 
+        });
+        const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
         
-        const updatedCandidates = [...session.candidates, newCandidate];
-        await setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
-          .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+        // Find a candidate not already in the list
+        const newCandidateData = candidatesArray.find((c: any) => !session.candidates.some(existing => existing.name === c.name));
+        
+        if (newCandidateData) {
+          const newCandidate: Candidate = {
+            id: `${sessionId}-${Date.now()}`,
+            ...newCandidateData
+          };
           
-        // Enrich the new candidate
-        const enrichment = await enrichCandidateProfile(newCandidate);
-        const finalCandidates = updatedCandidates.map(c => 
-          c.id === newCandidate.id ? { ...c, ...enrichment } : c
-        );
-        await setDoc(sessionRef, { candidates: finalCandidates }, { merge: true })
-          .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+          const updatedCandidates = [...session.candidates, newCandidate];
+          await setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
+            .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+            
+          // Enrich the new candidate
+          const enrichment = await enrichCandidateProfile(newCandidate);
+          const finalCandidates = updatedCandidates.map(c => 
+            c.id === newCandidate.id ? { ...c, ...enrichment } : c
+          );
+          await setDoc(sessionRef, { candidates: finalCandidates }, { merge: true })
+            .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+        }
+      } catch (error) {
+        console.error('Failed to source replacement candidate:', error);
       }
-    } catch (error) {
-      console.error('Failed to source replacement candidate:', error);
     }
   };
 
@@ -378,7 +688,209 @@ export default function App() {
       .catch(err => handleFirestoreError(err, OperationType.DELETE, sessionRef.path));
   };
 
+  const handleAddContact = async (candidate: Candidate) => {
+    if (!user) return;
+    
+    // Check if already exists by URL to avoid duplicates
+    const existing = contacts.find(c => c.url === candidate.url);
+    const contactId = existing ? existing.id : candidate.id;
+
+    const contactRef = doc(db, 'users', user.uid, 'contacts', contactId);
+    const newContact: Contact = {
+      ...candidate,
+      id: contactId,
+      addedAt: existing ? existing.addedAt : new Date().toISOString(),
+      tags: existing ? existing.tags || [] : [],
+      projects: existing ? existing.projects || [] : []
+    };
+
+    await setDoc(contactRef, cleanObject(newContact), { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.WRITE, contactRef.path));
+  };
+
+  const handleAddContactFromFile = async (file: File) => {
+    if (!user) return;
+    setIsAddingContact(true);
+
+    try {
+      // 1. Read file as base64
+      const fileData = await new Promise<{ name: string; data: string; mimeType: string }>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ name: file.name, data: base64, mimeType: file.type });
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // 2. Parse LinkedIn Profile
+      const parsedCandidate = await parseLinkedInProfile(fileData);
+      
+      const candidate: Candidate = {
+        id: `manual-${Date.now()}`,
+        ...parsedCandidate,
+        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        recentActivity: [],
+        score: 100,
+        scoringBreakdown: {
+          techMatch: 100,
+          contributionMatch: 100,
+          seniorityMatch: 100,
+          educationMatch: 100
+        },
+        reasoning: "Manually added profile."
+      };
+
+      await handleAddContact(candidate);
+    } catch (error) {
+      console.error('Failed to add contact from file:', error);
+    } finally {
+      setIsAddingContact(false);
+    }
+  };
+
+  const handleAddContactFromUrl = async (url: string) => {
+    if (!user) return;
+    setIsAddingContact(true);
+
+    try {
+      // 1. Parse Candidate from URL
+      const parsedCandidate = await parseCandidateFromUrl(url);
+      
+      const candidate: Candidate = {
+        id: `manual-${Date.now()}`,
+        ...parsedCandidate,
+        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        recentActivity: [],
+        score: 100,
+        scoringBreakdown: {
+          techMatch: 100,
+          contributionMatch: 100,
+          seniorityMatch: 100,
+          educationMatch: 100
+        },
+        reasoning: "Manually added from URL."
+      };
+
+      await handleAddContact(candidate);
+    } catch (error) {
+      console.error('Failed to add contact from URL:', error);
+    } finally {
+      setIsAddingContact(false);
+    }
+  };
+
+  const handleUpdateContact = async (contactId: string, updates: Partial<Contact>) => {
+    if (!user) return;
+    
+    const contactRef = doc(db, 'users', user.uid, 'contacts', contactId);
+    await setDoc(contactRef, cleanObject(updates), { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.UPDATE, contactRef.path));
+
+    // Propagate updates to all sessions containing this candidate
+    const contact = contacts.find(c => c.id === contactId);
+    if (contact) {
+      // Profile fields to sync
+      const profileUpdates = { ...updates };
+      delete (profileUpdates as any).addedAt;
+      delete (profileUpdates as any).tags;
+      delete (profileUpdates as any).projects;
+
+      if (Object.keys(profileUpdates).length === 0) return;
+
+      for (const session of sessions) {
+        const hasCandidate = session.candidates.some(c => (c.url && c.url === contact.url) || c.id === contact.id);
+        const hasSourced = session.sourcedCandidates?.some(c => (c.url && c.url === contact.url) || c.id === contact.id);
+
+        if (hasCandidate || hasSourced) {
+          const sessionRef = doc(db, 'users', user.uid, 'sessions', session.id);
+          const updatedCandidates = session.candidates.map(c => 
+            ((c.url && c.url === contact.url) || c.id === contact.id) ? { ...c, ...profileUpdates } : c
+          );
+          const updatedSourced = (session.sourcedCandidates || []).map(c =>
+            ((c.url && c.url === contact.url) || c.id === contact.id) ? { ...c, ...profileUpdates } : c
+          );
+
+          setDoc(sessionRef, cleanObject({
+            candidates: updatedCandidates,
+            sourcedCandidates: updatedSourced
+          }), { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+        }
+      }
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    if (!user) return;
+    
+    const contactRef = doc(db, 'users', user.uid, 'contacts', contactId);
+    await deleteDoc(contactRef)
+      .catch(err => handleFirestoreError(err, OperationType.DELETE, contactRef.path));
+  };
+
+  const handleAddProject = async (name: string, description?: string) => {
+    if (!user) return;
+    
+    const projectId = Date.now().toString();
+    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+    const newProject: Project = {
+      id: projectId,
+      name,
+      description,
+      createdAt: new Date().toISOString(),
+      candidateIds: []
+    };
+
+    await setDoc(projectRef, newProject)
+      .catch(err => handleFirestoreError(err, OperationType.WRITE, projectRef.path));
+  };
+
+  const handleUpdateProject = async (projectId: string, updates: Partial<Project>) => {
+    if (!user) return;
+    
+    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+    await setDoc(projectRef, cleanObject(updates), { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.UPDATE, projectRef.path));
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!user) return;
+    
+    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+    await deleteDoc(projectRef)
+      .catch(err => handleFirestoreError(err, OperationType.DELETE, projectRef.path));
+  };
+
   const activeSession = sessions.find(s => s.id === activeSessionId) || null;
+
+  // Sync candidate data with contacts for the active session
+  const syncedSession = useMemo(() => {
+    if (!activeSession) return null;
+    
+    const syncCandidate = (c: Candidate) => {
+      // Find matching contact by URL or ID
+      const contact = contacts.find(ct => (ct.url && ct.url === c.url) || ct.id === c.id);
+      if (contact) {
+        // Merge contact data, but keep session-specific fields from candidate
+        return {
+          ...c,
+          ...contact,
+          id: c.id, // Keep session-specific ID for UI stability
+          score: c.score,
+          reasoning: c.reasoning,
+          impactSummary: c.impactSummary,
+          scoringBreakdown: c.scoringBreakdown
+        };
+      }
+      return c;
+    };
+
+    return {
+      ...activeSession,
+      candidates: activeSession.candidates.map(syncCandidate),
+      sourcedCandidates: activeSession.sourcedCandidates?.map(syncCandidate)
+    };
+  }, [activeSession, contacts]);
 
   if (!isAuthReady) {
     return (
@@ -419,14 +931,22 @@ export default function App() {
       <Sidebar 
         sessions={sessions} 
         activeSessionId={activeSessionId}
-        onSelectSession={setActiveSessionId}
-        onNewSearch={() => setActiveSessionId(null)}
+        onSelectSession={(id) => {
+          setActiveSessionId(id);
+          setActiveNav('search');
+        }}
+        onNewSearch={() => {
+          setActiveSessionId(null);
+          setActiveNav('search');
+        }}
         onDeleteSession={handleDeleteSession}
         user={user}
         onLogin={loginWithGoogle}
         onLogout={logout}
         width={isSidebarCollapsed ? 0 : sidebarWidth}
         onCollapse={() => setIsSidebarCollapsed(true)}
+        activeNav={activeNav}
+        onNavChange={setActiveNav}
       />
       
       {!isSidebarCollapsed && (
@@ -447,24 +967,51 @@ export default function App() {
           </button>
         )}
         
-        <ChatArea 
-          session={activeSession} 
-          onToggleShortlist={(candidateId, feedback) => activeSessionId && handleToggleShortlist(activeSessionId, candidateId, feedback)}
-          onRejectCandidate={(candidateId, feedback) => activeSessionId && handleRejectCandidate(activeSessionId, candidateId, feedback)}
-          onUpdateTitle={(title) => activeSessionId && handleUpdateTitle(activeSessionId, title)}
-          onUpdateCandidate={(candidateId, updates) => activeSessionId && handleUpdateCandidate(activeSessionId, candidateId, updates)}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onLockShortlist={() => activeSessionId && handleLockShortlist(activeSessionId)}
-          onSourceLookalikes={(count) => activeSessionId && handleSourceLookalikes(activeSessionId, count)}
-          activeTab={activeTab}
-          onActiveTabChange={setActiveTab}
-          isSidebarCollapsed={isSidebarCollapsed}
-        />
-        {viewMode === 'classic' && activeTab === 'results' && (
-          <SearchInput 
-            onSearch={handleSearch} 
-            isLoading={activeSession?.status === 'searching'} 
+        {activeNav === 'search' ? (
+          <>
+            <ChatArea 
+              session={syncedSession} 
+              onToggleShortlist={(candidateId, feedback) => activeSessionId && handleToggleShortlist(activeSessionId, candidateId, feedback)}
+              onRejectCandidate={(candidateId, feedback) => activeSessionId && handleRejectCandidate(activeSessionId, candidateId, feedback)}
+              onUpdateTitle={(title) => activeSessionId && handleUpdateTitle(activeSessionId, title)}
+              onUpdatePrompt={(prompt) => activeSessionId && handleUpdatePrompt(activeSessionId, prompt)}
+              onUpdateCandidate={(candidateId, updates) => activeSessionId && handleUpdateCandidate(activeSessionId, candidateId, updates)}
+              onUpdateFeedback={(candidateId, feedback) => activeSessionId && handleUpdateFeedback(activeSessionId, candidateId, feedback)}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onLockShortlist={() => activeSessionId && handleLockShortlist(activeSessionId)}
+              onSourceLookalikes={(count) => activeSessionId && handleSourceLookalikes(activeSessionId, count)}
+              activeTab={activeTab}
+              onActiveTabChange={setActiveTab}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onAddContact={handleAddContact}
+              contacts={contacts}
+            />
+            {viewMode === 'classic' && activeTab === 'results' && (
+              <SearchInput 
+                onSearch={handleSearch} 
+                onRestart={activeSession ? handleRestartSearch : undefined}
+                isLoading={activeSession?.status === 'searching'} 
+              />
+            )}
+          </>
+        ) : activeNav === 'contacts' ? (
+          <ContactsView 
+            contacts={contacts}
+            projects={projects}
+            onUpdateContact={handleUpdateContact}
+            onDeleteContact={handleDeleteContact}
+            onAddContactFromFile={handleAddContactFromFile}
+            onAddContactFromUrl={handleAddContactFromUrl}
+            isAddingContact={isAddingContact}
+          />
+        ) : (
+          <ProjectsView 
+            projects={projects}
+            contacts={contacts}
+            onAddProject={handleAddProject}
+            onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
           />
         )}
       </main>

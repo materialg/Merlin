@@ -28,6 +28,24 @@ service cloud.firestore {
     //   - urls: list (optional)
     //   - candidates: list (optional, array of Candidate objects)
     //
+    // Collection: /users/{userId}/contacts/{contactId}
+    // Document ID: contactId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - addedAt: string (required, ISO 8601)
+    //   - tags: list (optional)
+    //   - projects: list (optional)
+    //
+    // Collection: /users/{userId}/projects/{projectId}
+    // Document ID: projectId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - description: string (optional)
+    //   - createdAt: string (required, ISO 8601)
+    //   - candidateIds: list (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -66,12 +84,27 @@ service cloud.firestore {
     }
 
     function isValidSession(data) {
-      return hasOnlyAllowedFields(['id', 'title', 'prompt', 'timestamp', 'plan', 'sources', 'status', 'attachments', 'urls', 'candidates']) &&
+      return hasOnlyAllowedFields(['id', 'title', 'prompt', 'timestamp', 'plan', 'sources', 'status', 'attachments', 'urls', 'candidates', 'shortlistedIds', 'rejectedIds', 'isShortlistLocked', 'sourcingStatus', 'sourcedCandidates', 'companyLink', 'fingerprint', 'feedbackMap']) &&
              data.id is string &&
              data.title is string && data.title.size() < 200 &&
              data.prompt is string && data.prompt.size() < 5000 &&
              isValidDateString(data.timestamp) &&
              data.status in ['idle', 'searching', 'completed', 'error'];
+    }
+
+    function isValidContact(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'title', 'bio', 'platform', 'url', 'score', 'reasoning', 'impactSummary', 'company', 'email', 'avatar', 'location', 'education', 'educationHistory', 'socialLinks', 'recentActivity', 'scoringBreakdown', 'addedAt', 'tags', 'projects']) &&
+             data.id is string &&
+             data.name is string && data.name.size() < 200 &&
+             isValidDateString(data.addedAt);
+    }
+
+    function isValidProject(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'description', 'createdAt', 'candidateIds']) &&
+             data.id is string &&
+             data.name is string && data.name.size() < 200 &&
+             isValidDateString(data.createdAt) &&
+             data.candidateIds is list;
     }
 
     // ===============================================================
@@ -87,6 +120,20 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidSession(request.resource.data);
         allow update: if isOwner(userId) && isValidSession(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /contacts/{contactId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidContact(request.resource.data);
+        allow update: if isOwner(userId) && isValidContact(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /projects/{projectId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidProject(request.resource.data);
+        allow update: if isOwner(userId) && isValidProject(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }
