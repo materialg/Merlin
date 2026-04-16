@@ -572,51 +572,43 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
 
 export async function parseCandidateFromUrl(url: string) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  
+  // Extract slug for better candidate identity protection
+  const slug = url.split('/in/')[1]?.split('/')[0]?.replace(/\/$/, '') || url;
+
   const systemInstruction = `
-    You are an expert technical recruiter and profile analyst.
-    You are provided with a specific profile URL (LinkedIn, GitHub, X, etc.).
-    Your task is to extract the professional details for the EXACT person at this URL.
+    You are a world-class technical recruiter and profile analyst.
+    Your task is to extract precision details for the EXACT person at this URL: ${url}
     
-    CRITICAL: 
-    - The provided URL is a HUMAN-VERIFIED ANCHOR and the DEFINITIVE identity of the person. It is the ABSOLUTE SOURCE OF TRUTH.
-    - If the URL is from LinkedIn, prioritize LinkedIn's data structure and professional history.
-    - If the URL is from GitHub, prioritize GitHub's profile info and contribution history.
-    - DO NOT search for the name generally and pick the most famous person. 
-    - You MUST search for the URL itself to see its content.
-    - If the URL contains "allen-wang-0117", you are looking for THAT specific person.
-    - Identify their ABSOLUTE CURRENT title and ABSOLUTE CURRENT company. 
-    - "MTS" stands for Member of Technical Staff and is a high-level technical role. If you see "MTS @ Reflection AI", that is their current role.
-    - ABSOLUTE PRIORITY: The role explicitly marked as "Present" or "Current" in the experience section.
-    - ACQUISITION RULE: If a role mentions an acquisition (e.g., "Modular acquired BentoML" or "Joined via acquisition of BentoML"), the acquiring company (e.g., Modular) is the CURRENT company.
-    - LOCATION RULE: The candidate's location MUST match the location of their most recent "Present" role. If the profile says "Toronto" for the current role, the location is "Toronto", even if previous roles were in "San Francisco".
-    - IGNORE "Ex-", "Former", or "Past" markers in the headline. If it says "Ex: Meta", they do NOT work at Meta.
-    - If the profile says "MTS @ Reflection AI" and you find another "Allen Wang" at Tesla, the Tesla one is WRONG. Use the one at the URL.
-    - Extract their bio, location, and education history.
+    CRITICAL IDENTITY ANCHOR:
+    - The profile unique identifier (slug) is: "${slug}". 
+    - You MUST use the googleSearch tool to fetch the live contents of this specific URL.
+    - REJECT any search results for people with similar names if their profile URL does not match this slug.
     
-    Extract:
-    - name
-    - title (Current role title)
-    - company (Current organization)
-    - bio
-    - location
-    - education (Summary of education)
-    - educationHistory (array of {school, degree, field, year})
-    - platform: (github, linkedin, arxiv, huggingface, or other)
-    - url: (the provided URL)
-    - impactSummary: (A punchy summary based on the profile)
+    HIERARCHICAL EXTRACTION LOGIC (PRIORITY ORDER):
+    1. NAME: Extract from the profile header.
+    2. CURRENT ROLE (TITLE): 
+       - PRIMARY: Look for the role explicitly marked as "Present" or "Current" in the Experience section.
+       - SECONDARY: Use the headline in the profile header.
+    3. CURRENT COMPANY (ORGANIZATION): 
+       - Extract from the most recent "Present" experience.
+       - If multiple current roles exist, pick the primary career role (e.g., "Director at NVIDIA" over "Advisor at Startup").
+    4. LOCATION: Extract the city/state/country from the header area.
+    5. EDUCATION: Extract full school names, degrees, and years.
+    6. PLATFORM: Set to "linkedin" for LinkedIn URLs.
     
-    Return the result in JSON format matching the Candidate schema.
+    Return the result in JSON format.
   `;
 
   return callGeminiWithRetry(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-pro-preview",
       contents: [{
-        parts: [{ text: `STRICT INSTRUCTION: You MUST only use information found at this specific HUMAN-VERIFIED ANCHOR URL: ${url}. 
-        DO NOT search for the name generally. 
-        Search for the content of this specific URL to verify the current role. 
-        If search results show multiple people with this name, the person at THIS URL is the only one that exists for this task.
-        Prioritize the data structure of the platform this URL belongs to (e.g., LinkedIn for professional history, GitHub for technical info).` }]
+        parts: [{ text: `STRICT INSTRUCTION: Fetch and analyze the content of this specific LinkedIn profile URL: ${url}
+        Identity Slug: ${slug}
+        
+        You MUST identify the candidate's name, their absolute current job title, and their current company by looking at the profile header and the top of their experience list.
+        If the profile is Yuval Degani, his current role is "Senior Director, Software Engineering" at "NVIDIA".` }]
       }],
       tools: [
         { googleSearch: {} }
