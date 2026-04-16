@@ -110,7 +110,7 @@ export default function ChatArea({
 
 
 
-  const handleSocialSave = (links: { platform: string; url: string }[]) => {
+  const handleSocialSave = (links: { platform: string; url: string }[], anchorUrl?: string) => {
     if (!socialModal.candidate) return;
     
     // Extract email if it exists in the links
@@ -120,8 +120,10 @@ export default function ChatArea({
     onUpdateCandidate(socialModal.candidate.id, { 
       socialLinks: otherLinks,
       email: emailLink ? emailLink.url.replace('mailto:', '') : null,
+      anchorProfileUrl: anchorUrl,
       // Update main url if a LinkedIn or primary link is found
-      url: otherLinks.find(l => l.platform === 'LinkedIn')?.url || 
+      url: anchorUrl || 
+           otherLinks.find(l => l.platform === 'LinkedIn')?.url || 
            otherLinks.find(l => l.platform === 'GitHub')?.url || 
            otherLinks[0]?.url || 
            socialModal.candidate.url
@@ -234,6 +236,7 @@ export default function ChatArea({
             ? [{ platform: 'Website', url: socialModal.candidate.url }] 
             : [])
         ]}
+        initialAnchorUrl={socialModal.candidate?.anchorProfileUrl}
         candidateName={socialModal.candidate?.name || ''}
       />
       
@@ -999,9 +1002,16 @@ export default function ChatArea({
               )}
 
               {session.status === 'error' && (
-                <div className="flex items-center gap-2 text-red-600 bg-red-50 p-4 rounded-xl border border-red-100">
-                  <AlertCircle className="w-5 h-5" />
-                  <p className="text-sm font-medium">Something went wrong with the search. Please try again.</p>
+                <div className="flex flex-col gap-2 bg-red-50 p-4 rounded-xl border border-red-100">
+                  <div className="flex items-center gap-2 text-red-600">
+                    <AlertCircle className="w-5 h-5" />
+                    <p className="text-sm font-medium">Something went wrong with the search. Please try again.</p>
+                  </div>
+                  {session.error && (
+                    <p className="text-xs text-red-500 font-mono mt-1 bg-white/50 p-2 rounded border border-red-100 overflow-auto max-h-[100px]">
+                      {session.error}
+                    </p>
+                  )}
                 </div>
               )}
             </motion.div>

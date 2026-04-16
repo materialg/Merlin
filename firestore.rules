@@ -84,7 +84,7 @@ service cloud.firestore {
     }
 
     function isValidSession(data) {
-      return hasOnlyAllowedFields(['id', 'title', 'prompt', 'timestamp', 'plan', 'sources', 'status', 'attachments', 'urls', 'candidates', 'shortlistedIds', 'rejectedIds', 'isShortlistLocked', 'sourcingStatus', 'sourcedCandidates', 'companyLink', 'fingerprint', 'feedbackMap']) &&
+      return hasOnlyAllowedFields(['id', 'title', 'prompt', 'timestamp', 'plan', 'sources', 'status', 'attachments', 'urls', 'candidates', 'shortlistedIds', 'rejectedIds', 'isShortlistLocked', 'sourcingStatus', 'sourcedCandidates', 'companyLink', 'fingerprint', 'feedbackMap', 'error']) &&
              data.id is string &&
              data.title is string && data.title.size() < 200 &&
              data.prompt is string && data.prompt.size() < 5000 &&

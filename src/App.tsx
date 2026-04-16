@@ -255,9 +255,13 @@ export default function App() {
 
       await setDoc(sessionRef, { status: 'completed' }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search failed:', error);
-      await setDoc(sessionRef, { status: 'error' }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await setDoc(sessionRef, { 
+        status: 'error',
+        error: errorMessage 
+      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
     }
   };
 
@@ -731,6 +735,7 @@ export default function App() {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
         socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        anchorProfileUrl: parsedCandidate.url,
         recentActivity: [],
         email: parsedCandidate.email,
         score: 100,
@@ -763,6 +768,7 @@ export default function App() {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
         socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        anchorProfileUrl: parsedCandidate.url,
         recentActivity: [],
         email: parsedCandidate.email,
         score: 100,

@@ -75,4 +75,5 @@ export interface SearchSession {
   isShortlistLocked?: boolean;
   sourcingStatus?: 'idle' | 'sourcing' | 'completed' | 'error';
   feedbackMap?: Record<string, string>;
+  error?: string;
 }
