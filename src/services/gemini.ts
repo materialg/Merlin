@@ -355,7 +355,8 @@ export async function sourceLookalikes(shortlistedCandidates: any[], count: numb
     
     STRATEGY:
     1. Analyze the commonalities in the Calibration Set (e.g., specific companies, research labs, tech stacks, or contribution patterns).
-    2. Use Google Search to identify other engineers with similar backgrounds.
+    2. Analyze the "feedbackMap" in the provided Fingerprint to understand WHY these candidates were shortlisted or why others were rejected. Use this qualitative feedback to refine your search parameters.
+    3. Use Google Search to identify other engineers with similar backgrounds.
     3. Ensure the new candidates are NOT already in the Calibration Set.
     4. Maintain the same geographic constraint: Only identify candidates based in the United States or Canada. This is a HARD CONSTRAINT. Discard any candidates from outside these two countries. If a candidate's location is not explicitly USA or Canada, do not include them.
     

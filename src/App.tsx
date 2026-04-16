@@ -666,7 +666,10 @@ export default function App() {
 
     try {
       const shortlistedCandidates = session.candidates.filter(c => session.shortlistedIds?.includes(c.id));
-      const sourced = await sourceLookalikes(shortlistedCandidates, count, session.fingerprint);
+      const sourced = await sourceLookalikes(shortlistedCandidates, count, {
+        ...session.fingerprint,
+        feedbackMap: session.feedbackMap || {}
+      });
       
       await setDoc(sessionRef, { 
         sourcedCandidates: sourced,

@@ -1,5 +1,5 @@
 import { X, Send } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface FeedbackModalProps {
@@ -13,6 +13,13 @@ interface FeedbackModalProps {
 
 export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candidateName, type }: FeedbackModalProps) {
   const [feedback, setFeedback] = useState('');
+
+  // Clear feedback when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFeedback('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
