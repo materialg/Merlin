@@ -1,3 +1,6 @@
+Welcome to Talent Wizard AI - where Merlin will use LinkedIn, Github, X, Arxiv, Hugging Face, and many more sources to find amazing candidates!
+All powered by Google Gemini 3.1 PRO
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
