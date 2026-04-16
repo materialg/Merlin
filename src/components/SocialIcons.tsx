@@ -1,6 +1,7 @@
 import React from 'react';
 import { Linkedin, Github, BookOpen, GraduationCap, Link, Mail, Pencil, Star } from 'lucide-react';
 import { Candidate } from '../types';
+import { cleanUrl } from '../lib/utils';
 
 export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
   const platforms = [
@@ -43,14 +44,17 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
       if (platform.key === 'scholar' && u.includes('scholar.google.com')) link = { platform: 'Google Scholar', url: candidate.url };
     }
 
-    const isMissing = !link;
+    const cleaned = link ? cleanUrl(link.url) : null;
+    const isMissing = !cleaned;
+    const finalUrl = cleaned || '#';
 
     return (
       <a 
         key={platform.key} 
-        href={link?.url || '#'} 
+        href={finalUrl} 
         target="_blank" 
         rel="noopener noreferrer"
+        referrerPolicy="no-referrer"
         onClick={(e) => isMissing && e.preventDefault()}
         className={`p-1 rounded transition-all ${
           isMissing 
@@ -80,11 +84,12 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
 
   return (
     <div className="flex items-center gap-1">
-      {candidate.anchorProfileUrl && (
+      {candidate.anchorProfileUrl && cleanUrl(candidate.anchorProfileUrl) && (
         <a 
-          href={candidate.anchorProfileUrl}
+          href={cleanUrl(candidate.anchorProfileUrl)!}
           target="_blank"
           rel="noopener noreferrer"
+          referrerPolicy="no-referrer"
           className="p-1 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-all"
           title="Source of Truth (Anchored Profile)"
         >

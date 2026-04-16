@@ -6,6 +6,7 @@ import { getEduCategory } from '../lib/utils';
 import { getSocialIcons } from './SocialIcons';
 import FeedbackModal from './FeedbackModal';
 import SocialLinksModal from './SocialLinksModal';
+import EducationEditModal from './EducationEditModal';
 
 interface ChatAreaProps {
   session: SearchSession | null;
@@ -53,6 +54,8 @@ export default function ChatArea({
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState('');
   const [expandedEducationId, setExpandedEducationId] = useState<string | null>(null);
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [tempCompany, setTempCompany] = useState("");
   const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeEduFilters, setActiveEduFilters] = useState<Record<string, string[]>>({});
@@ -67,6 +70,13 @@ export default function ChatArea({
     type: 'shortlist'
   });
   const [socialModal, setSocialModal] = useState<{
+    isOpen: boolean;
+    candidate: Candidate | null;
+  }>({
+    isOpen: false,
+    candidate: null
+  });
+  const [educationModal, setEducationModal] = useState<{
     isOpen: boolean;
     candidate: Candidate | null;
   }>({
@@ -130,6 +140,17 @@ export default function ChatArea({
     });
 
     setSocialModal({ isOpen: false, candidate: null });
+  };
+
+  const handleEducationSave = (history: any[]) => {
+    if (!educationModal.candidate) return;
+    onUpdateCandidate(educationModal.candidate.id, { educationHistory: history });
+    setEducationModal({ isOpen: false, candidate: null });
+  };
+
+  const handleCompanySave = (candidateId: string) => {
+    onUpdateCandidate(candidateId, { company: tempCompany });
+    setEditingCompanyId(null);
   };
 
   const handleShortlistClick = (candidate: Candidate) => {
@@ -238,6 +259,14 @@ export default function ChatArea({
         ]}
         initialAnchorUrl={socialModal.candidate?.anchorProfileUrl}
         candidateName={socialModal.candidate?.name || ''}
+      />
+
+      <EducationEditModal
+        isOpen={educationModal.isOpen}
+        onClose={() => setEducationModal({ isOpen: false, candidate: null })}
+        onSave={handleEducationSave}
+        initialHistory={educationModal.candidate?.educationHistory || []}
+        candidateName={educationModal.candidate?.name || ''}
       />
       
       {/* Session Title Header */}
@@ -536,16 +565,48 @@ export default function ChatArea({
                             </div>
                           </div>
 
-                          {/* Sub-info */}
-                          <div className="space-y-2">
-                            {candidate.company && (
+                            {/* Sub-info */}
+                            <div className="space-y-2">
                               <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center">
+                                <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center shrink-0">
                                   <Building2 className="w-3 h-3 text-gray-400" />
                                 </div>
-                                <span className="font-medium">{candidate.company}</span>
+                                {editingCompanyId === candidate.id ? (
+                                  <div className="flex items-center gap-2 w-full">
+                                    <input
+                                      type="text"
+                                      value={tempCompany}
+                                      onChange={(e) => setTempCompany(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleCompanySave(candidate.id);
+                                        if (e.key === 'Escape') setEditingCompanyId(null);
+                                      }}
+                                      className="text-xs border border-blue-300 rounded px-2 py-0.5 focus:ring-2 focus:ring-blue-500 outline-none w-full max-w-[200px]"
+                                      autoFocus
+                                    />
+                                    <button 
+                                      onClick={() => handleCompanySave(candidate.id)}
+                                      className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 group/company">
+                                    <span className="font-medium">{candidate.company || 'Unknown'}</span>
+                                    <button 
+                                      onClick={() => {
+                                        setEditingCompanyId(candidate.id);
+                                        setTempCompany(candidate.company || "");
+                                      }}
+                                      className="opacity-0 group-hover/company:opacity-100 p-0.5 text-gray-400 hover:text-blue-600 transition-all"
+                                      title="Edit organization"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                               <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center">
                                 <Globe className="w-3 h-3 text-gray-400" />
@@ -560,26 +621,38 @@ export default function ChatArea({
                               </div>
                             )}
 
-                            {(candidate.education || (candidate.educationHistory && candidate.educationHistory.length > 0)) && (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                  <button 
-                                    onClick={() => {
+                            <div className="relative">
+                              <div className="flex items-center gap-3">
+                                <button 
+                                  onClick={() => {
+                                    if (!candidate.educationHistory || candidate.educationHistory.length === 0) {
+                                      setEducationModal({ isOpen: true, candidate });
+                                    } else {
                                       setExpandedEducationId(expandedEducationId === candidate.id ? null : candidate.id);
                                       if (expandedEducationId !== candidate.id) {
                                         // Default to showing all if opening via main button
                                         setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['P', 'M', 'B'] }));
                                       }
-                                    }}
-                                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors group"
-                                  >
-                                    <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center group-hover:bg-blue-50">
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors group"
+                                >
+                                  <div className="w-4 h-4 bg-gray-100 rounded flex items-center justify-center group-hover:bg-blue-50">
+                                    {(!candidate.educationHistory || candidate.educationHistory.length === 0) ? (
+                                      <Plus className="w-3 h-3 text-gray-400 group-hover:text-blue-500" />
+                                    ) : (
                                       <GraduationCap className="w-3 h-3 text-gray-400 group-hover:text-blue-500" />
-                                    </div>
-                                    <span className="font-medium text-gray-500 group-hover:text-blue-600">Education</span>
+                                    )}
+                                  </div>
+                                  <span className="font-medium text-gray-500 group-hover:text-blue-600">
+                                    {(!candidate.educationHistory || candidate.educationHistory.length === 0) ? "Add Education" : "Education"}
+                                  </span>
+                                  {candidate.educationHistory && candidate.educationHistory.length > 0 && (
                                     <ChevronDown className={`w-3 h-3 transition-transform ${expandedEducationId === candidate.id ? 'rotate-180' : ''}`} />
-                                  </button>
+                                  )}
+                                </button>
 
+                                {candidate.educationHistory && candidate.educationHistory.length > 0 && (
                                   <div className="flex items-center gap-1.5">
                                     {['P', 'M', 'B'].map((cat) => {
                                       const hasDegree = candidate.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
@@ -611,40 +684,53 @@ export default function ChatArea({
                                       );
                                     })}
                                   </div>
-                                </div>
-                                
-                                <AnimatePresence>
-                                  {expandedEducationId === candidate.id && candidate.educationHistory && candidate.educationHistory.length > 0 && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      className="overflow-hidden pl-6 space-y-2 border-l-2 border-gray-100 ml-2"
-                                    >
-                                      {['P', 'M', 'B']
-                                        .filter(cat => {
-                                          const filters = activeEduFilters[candidate.id] || ['B', 'M', 'P'];
-                                          return filters.includes(cat);
-                                        })
-                                        .map(cat => {
-                                          const edus = candidate.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
-                                          return edus?.map((edu, i) => (
-                                            <div key={`${cat}-${i}`} className="text-xs text-gray-500 py-1.5 flex flex-wrap gap-1 items-center">
-                                              {edu.year && <span className="font-bold text-gray-700">{edu.year}</span>}
-                                              {edu.year && <span className="text-gray-300">•</span>}
-                                              <span className="font-bold text-gray-700">{edu.school}</span>
-                                              <span className="text-gray-300">•</span>
-                                              <span className="text-blue-600 font-medium">{edu.degree}</span>
-                                              {edu.field && <span className="text-gray-300">•</span>}
-                                              {edu.field && <span className="italic">{edu.field}</span>}
-                                            </div>
-                                          ));
-                                        })}
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
+                                )}
                               </div>
-                            )}
+                              
+                              <AnimatePresence>
+                                {expandedEducationId === candidate.id && candidate.educationHistory && candidate.educationHistory.length > 0 && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden pl-6 space-y-2 border-l-2 border-gray-100 ml-2"
+                                  >
+                                    <div className="flex items-center gap-2 py-1">
+                                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">History</span>
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setEducationModal({ isOpen: true, candidate });
+                                        }} 
+                                        className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                                        title="Edit Education"
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    {['P', 'M', 'B']
+                                      .filter(cat => {
+                                        const filters = activeEduFilters[candidate.id] || ['B', 'M', 'P'];
+                                        return filters.includes(cat);
+                                      })
+                                      .map(cat => {
+                                        const edus = candidate.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
+                                        return edus?.map((edu, i) => (
+                                          <div key={`${cat}-${i}`} className="text-xs text-gray-500 py-1.5 flex flex-wrap gap-1 items-center">
+                                            {edu.year && <span className="font-bold text-gray-700">{edu.year}</span>}
+                                            {edu.year && <span className="text-gray-300">•</span>}
+                                            <span className="font-bold text-gray-700">{edu.school}</span>
+                                            <span className="text-gray-300">•</span>
+                                            <span className="text-blue-600 font-medium">{edu.degree}</span>
+                                            {edu.field && <span className="text-gray-300">•</span>}
+                                            {edu.field && <span className="italic">{edu.field}</span>}
+                                          </div>
+                                        ));
+                                      })}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
 
                             {activeTab === 'shortlist' && (
                               <div className="space-y-2">
@@ -747,58 +833,108 @@ export default function ChatArea({
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex flex-col">
-                                <span className="text-xs text-gray-400 font-medium truncate max-w-[200px]">{candidate.company}</span>
+                                {editingCompanyId === candidate.id ? (
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <input
+                                      type="text"
+                                      value={tempCompany}
+                                      onChange={(e) => setTempCompany(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleCompanySave(candidate.id);
+                                        if (e.key === 'Escape') setEditingCompanyId(null);
+                                      }}
+                                      className="text-[10px] border border-blue-300 rounded px-1.5 py-0.5 focus:ring-2 focus:ring-blue-500 outline-none w-full max-w-[150px]"
+                                      autoFocus
+                                    />
+                                    <button 
+                                      onClick={() => handleCompanySave(candidate.id)}
+                                      className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all"
+                                    >
+                                      <Check className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 group/company">
+                                    <span className="text-xs text-gray-400 font-medium truncate max-w-[200px]">{candidate.company || 'Unknown'}</span>
+                                    <button 
+                                      onClick={() => {
+                                        setEditingCompanyId(candidate.id);
+                                        setTempCompany(candidate.company || "");
+                                      }}
+                                      className="opacity-0 group-hover/company:opacity-100 p-0.5 text-gray-400 hover:text-blue-600 transition-all"
+                                      title="Edit organization"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                )}
                                 <span className="text-sm text-gray-700 font-medium truncate max-w-[200px]">{candidate.title}</span>
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              {(candidate.education || (candidate.educationHistory && candidate.educationHistory.length > 0)) && (
                                 <div className="relative">
                                   <div className="flex items-center gap-1.5">
                                     <button 
                                       onClick={() => {
-                                        setExpandedEducationId(expandedEducationId === candidate.id ? null : candidate.id);
-                                        if (expandedEducationId !== candidate.id) {
-                                          setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['P', 'M', 'B'] }));
+                                        if (!candidate.educationHistory || candidate.educationHistory.length === 0) {
+                                          setEducationModal({ isOpen: true, candidate });
+                                        } else {
+                                          const isClosing = expandedEducationId === candidate.id;
+                                          setExpandedEducationId(isClosing ? null : candidate.id);
+                                          if (!isClosing) {
+                                            setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['P', 'M', 'B'] }));
+                                          } else {
+                                            setActiveEduFilters(prev => {
+                                              const next = { ...prev };
+                                              delete next[candidate.id];
+                                              return next;
+                                            });
+                                          }
                                         }
                                       }}
                                       className={`p-2 rounded-lg transition-all ${expandedEducationId === candidate.id ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50 hover:text-blue-600'}`}
-                                      title="View Education"
+                                      title={(!candidate.educationHistory || candidate.educationHistory.length === 0) ? "Add Education" : "View Education"}
                                     >
-                                      <GraduationCap className="w-4 h-4" />
+                                      {(!candidate.educationHistory || candidate.educationHistory.length === 0) ? (
+                                        <Plus className="w-4 h-4" />
+                                      ) : (
+                                        <GraduationCap className="w-4 h-4" />
+                                      )}
                                     </button>
 
-                                    <div className="flex items-center gap-1">
-                                      {['P', 'M', 'B'].map((cat) => {
-                                        const hasDegree = candidate.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
-                                        const isActive = activeEduFilters[candidate.id]?.includes(cat);
-                                        
-                                        let badgeStyles = "";
-                                        if (hasDegree) {
-                                          if (isActive) {
-                                            badgeStyles = cat === 'P' ? 'bg-indigo-800 text-white border-indigo-800' : 
-                                                         cat === 'M' ? 'bg-blue-700 text-white border-blue-700' : 
-                                                         'bg-blue-600 text-white border-blue-600';
+                                    {candidate.educationHistory && candidate.educationHistory.length > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        {['P', 'M', 'B'].map((cat) => {
+                                          const hasDegree = candidate.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
+                                          const isActive = activeEduFilters[candidate.id]?.includes(cat);
+                                          
+                                          let badgeStyles = "";
+                                          if (hasDegree) {
+                                            if (isActive) {
+                                              badgeStyles = cat === 'P' ? 'bg-indigo-800 text-white border-indigo-800' : 
+                                                           cat === 'M' ? 'bg-blue-700 text-white border-blue-700' : 
+                                                           'bg-blue-600 text-white border-blue-600';
+                                            } else {
+                                              badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100 hover:border-blue-300 hover:bg-blue-100 cursor-pointer';
+                                            }
                                           } else {
-                                            badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100 hover:border-blue-300 hover:bg-blue-100 cursor-pointer';
+                                            badgeStyles = 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed opacity-50';
                                           }
-                                        } else {
-                                          badgeStyles = 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed opacity-50';
-                                        }
 
-                                        return (
-                                          <button
-                                            key={cat}
-                                            onClick={() => hasDegree && toggleEduFilter(candidate.id, cat as any)}
-                                            disabled={!hasDegree}
-                                            className={`w-5 h-5 rounded-full border text-[8px] font-black flex items-center justify-center transition-all shadow-sm z-10 ${badgeStyles}`}
-                                            title={hasDegree ? `${cat === 'B' ? "Bachelor's" : cat === 'M' ? "Master's" : "PhD"} Degree` : "No data available"}
-                                          >
-                                            {cat}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
+                                          return (
+                                            <button
+                                              key={cat}
+                                              onClick={() => hasDegree && toggleEduFilter(candidate.id, cat as any)}
+                                              disabled={!hasDegree}
+                                              className={`w-5 h-5 rounded-full border text-[8px] font-black flex items-center justify-center transition-all shadow-sm z-10 ${badgeStyles}`}
+                                              title={hasDegree ? `${cat === 'B' ? "Bachelor's" : cat === 'M' ? "Master's" : "PhD"} Degree` : "No data available"}
+                                            >
+                                              {cat}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                   
                                   <AnimatePresence>
@@ -810,10 +946,35 @@ export default function ChatArea({
                                         className="absolute z-50 top-full left-0 mt-2 w-80 bg-white border border-gray-100 rounded-xl shadow-xl p-4 space-y-3"
                                       >
                                         <div className="flex items-center justify-between mb-1">
-                                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Education History</span>
-                                          <button onClick={(e) => { e.stopPropagation(); setExpandedEducationId(null); }} className="p-1 hover:bg-gray-100 rounded">
-                                            <X className="w-3 h-3 text-gray-400" />
-                                          </button>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Education History</span>
+                                            <button 
+                                              onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setEducationModal({ isOpen: true, candidate });
+                                              }} 
+                                              className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                                              title="Edit Education"
+                                            >
+                                              <Pencil className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <button 
+                                              onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setExpandedEducationId(null);
+                                                setActiveEduFilters(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[candidate.id];
+                                                  return next;
+                                                });
+                                              }} 
+                                              className="p-1 hover:bg-gray-100 rounded"
+                                            >
+                                              <X className="w-3 h-3 text-gray-400" />
+                                            </button>
+                                          </div>
                                         </div>
                                         <div className="max-h-64 overflow-y-auto pr-1 space-y-3">
                                           {candidate.educationHistory && candidate.educationHistory.length > 0 ? (
@@ -847,7 +1008,6 @@ export default function ChatArea({
                                     )}
                                   </AnimatePresence>
                                 </div>
-                              )}
                             </td>
                             {activeTab === 'shortlist' && (
                               <td className="py-4 px-4 min-w-[240px]">

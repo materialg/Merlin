@@ -8,7 +8,7 @@ import ProjectsView from './components/ProjectsView';
 import { SearchSession, Candidate, ViewMode, NavTab, Contact, Project } from './types';
 import { extractTechnicalFingerprint, searchCandidates, enrichCandidateProfile, rescoreCandidate, sourceLookalikes, parseLinkedInProfile, parseCandidateFromUrl } from './services/gemini';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './lib/firebase';
-import { cleanObject } from './lib/utils';
+import { cleanObject, cleanUrl } from './lib/utils';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, getDocFromServer, deleteDoc } from 'firebase/firestore';
 
@@ -203,9 +203,10 @@ export default function App() {
       const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
 
       let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const url = r.url || '';
+        const rawUrl = r.url || '';
+        const url = cleanUrl(rawUrl);
         let platform = (r.platform || 'other').toLowerCase() as any;
-        if (platform === 'other' && url) {
+        if (url) {
           if (url.includes('linkedin.com')) platform = 'linkedin';
           else if (url.includes('github.com')) platform = 'github';
           else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
@@ -215,6 +216,7 @@ export default function App() {
         return {
           id: `${sessionId}-${i}`,
           ...r,
+          url,
           platform,
           socialLinks: url ? [{ platform, url }] : []
         };
@@ -238,10 +240,16 @@ export default function App() {
             const updatedCandidates = currentSession.candidates.map(c => 
               c.id === candidate.id ? {
                 ...c,
-                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                socialLinks: [
+                  ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
+                  ...(c.socialLinks || [])
+                ].filter((link, index, self) => 
+                  index === self.findIndex((t) => 
+                    t.url === link.url || 
+                    t.platform.toLowerCase() === link.platform.toLowerCase()
+                  )
                 ),
-                recentActivity: enrichment.recentActivity
+                recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined }))
               } : c
             );
 
@@ -293,9 +301,10 @@ export default function App() {
       const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
 
       let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const url = r.url || '';
+        const rawUrl = r.url || '';
+        const url = cleanUrl(rawUrl);
         let platform = (r.platform || 'other').toLowerCase() as any;
-        if (platform === 'other' && url) {
+        if (url) {
           if (url.includes('linkedin.com')) platform = 'linkedin';
           else if (url.includes('github.com')) platform = 'github';
           else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
@@ -305,6 +314,7 @@ export default function App() {
         return {
           id: `${sessionId}-${i}-${Date.now()}`,
           ...r,
+          url,
           platform,
           socialLinks: url ? [{ platform, url }] : []
         };
@@ -326,10 +336,16 @@ export default function App() {
             const updatedCandidates = currentSession.candidates.map(c => 
               c.id === candidate.id ? {
                 ...c,
-                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                socialLinks: [
+                  ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
+                  ...(c.socialLinks || [])
+                ].filter((link, index, self) => 
+                  index === self.findIndex((t) => 
+                    t.url === link.url || 
+                    t.platform.toLowerCase() === link.platform.toLowerCase()
+                  )
                 ),
-                recentActivity: enrichment.recentActivity
+                recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined }))
               } : c
             );
 
@@ -484,9 +500,10 @@ export default function App() {
       const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
 
       const candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const url = r.url || '';
+        const rawUrl = r.url || '';
+        const url = cleanUrl(rawUrl);
         let platform = (r.platform || 'other').toLowerCase() as any;
-        if (platform === 'other' && url) {
+        if (url) {
           if (url.includes('linkedin.com')) platform = 'linkedin';
           else if (url.includes('github.com')) platform = 'github';
           else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
@@ -496,6 +513,7 @@ export default function App() {
         return {
           id: `${sessionId}-${i}-${Date.now()}`,
           ...r,
+          url,
           platform,
           socialLinks: url ? [{ platform, url }] : []
         };
@@ -517,10 +535,16 @@ export default function App() {
             const updatedCandidates = currentSession.candidates.map(c => 
               c.id === candidate.id ? {
                 ...c,
-                socialLinks: [...(c.socialLinks || []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-                  index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+                socialLinks: [
+                  ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
+                  ...(c.socialLinks || [])
+                ].filter((link, index, self) => 
+                  index === self.findIndex((t) => 
+                    t.url === link.url || 
+                    t.platform.toLowerCase() === link.platform.toLowerCase()
+                  )
                 ),
-                recentActivity: enrichment.recentActivity
+                recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined }))
               } : c
             );
 
@@ -805,6 +829,34 @@ export default function App() {
     }
   };
 
+  const handleParseUrl = async (url: string): Promise<Partial<Contact>> => {
+    try {
+      const parsed = await parseCandidateFromUrl(url);
+      return parsed;
+    } catch (error) {
+      console.error('Failed to parse URL:', error);
+      throw error;
+    }
+  };
+
+  const handleParseFile = async (file: File): Promise<Partial<Contact>> => {
+    try {
+      const fileData = await new Promise<{ name: string; data: string; mimeType: string }>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ name: file.name, data: base64, mimeType: file.type });
+        };
+        reader.readAsDataURL(file);
+      });
+      const parsed = await parseLinkedInProfile(fileData);
+      return parsed;
+    } catch (error) {
+      console.error('Failed to parse file:', error);
+      throw error;
+    }
+  };
+
   const handleUpdateContact = async (contactId: string, updates: Partial<Contact>) => {
     if (!user) return;
     
@@ -863,10 +915,16 @@ export default function App() {
       
       const updates: Partial<Contact> = {
         ...parsedCandidate,
-        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
+        socialLinks: [
+          ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
+          ...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: cleanUrl(parsedCandidate.url) }] : [])
+        ].filter((link, index, self) => 
+          index === self.findIndex((t) => 
+            t.url === link.url || 
+            t.platform.toLowerCase() === link.platform.toLowerCase()
+          )
         ),
-        recentActivity: enrichment.recentActivity,
+        recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined })),
         email: enrichment.email || parsedCandidate.email || contact.email
       };
 
@@ -1075,6 +1133,9 @@ export default function App() {
             onBulkDelete={handleBulkDelete}
             onAddContactFromFile={handleAddContactFromFile}
             onAddContactFromUrl={handleAddContactFromUrl}
+            onAddContact={handleAddContact}
+            onParseUrl={handleParseUrl}
+            onParseFile={handleParseFile}
             onRefreshContact={handleRefreshContact}
             onBulkRefresh={handleBulkRefresh}
             isAddingContact={isAddingContact}

@@ -6,6 +6,23 @@ if (!apiKey) {
 }
 const ai = new GoogleGenAI({ apiKey });
 
+async function callGeminiWithRetry(fn: () => Promise<any>, retries = 3, delay = 2000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = error?.message?.includes('429') || error?.status === 429 || error?.error?.code === 429;
+      if (isRateLimit && i < retries - 1) {
+        const waitTime = delay * Math.pow(2, i);
+        console.warn(`Gemini Rate Limit hit. Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 export async function extractTechnicalFingerprint(prompt: string, attachments: { name: string; data: string; mimeType: string }[], urls: string[], companyLink?: string) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing. Please check your environment variables.");
   
@@ -45,38 +62,40 @@ export async function extractTechnicalFingerprint(prompt: string, attachments: {
     });
   }
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: [{ parts: contents }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          primaryTech: { type: Type.ARRAY, items: { type: Type.STRING } },
-          secondarySignals: { type: Type.ARRAY, items: { type: Type.STRING } },
-          targetProfile: { type: Type.STRING },
-          plan: { type: Type.STRING },
-          sources: { type: Type.ARRAY, items: { type: Type.STRING } },
-          companyContext: { type: Type.STRING },
-          locationConstraint: { type: Type.STRING }
-        },
-        required: ["title", "primaryTech", "secondarySignals", "targetProfile", "plan", "sources", "companyContext", "locationConstraint"]
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: contents }],
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            primaryTech: { type: Type.ARRAY, items: { type: Type.STRING } },
+            secondarySignals: { type: Type.ARRAY, items: { type: Type.STRING } },
+            targetProfile: { type: Type.STRING },
+            plan: { type: Type.STRING },
+            sources: { type: Type.ARRAY, items: { type: Type.STRING } },
+            companyContext: { type: Type.STRING },
+            locationConstraint: { type: Type.STRING }
+          },
+          required: ["title", "primaryTech", "secondarySignals", "targetProfile", "plan", "sources", "companyContext", "locationConstraint"]
+        }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini:", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini:", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function searchCandidates(fingerprint: any) {
@@ -88,7 +107,8 @@ export async function searchCandidates(fingerprint: any) {
     CRITICAL: 
     - You MUST return EXACTLY 10 candidates. 
     - You MUST return the DIRECT profile URL for each candidate (e.g., https://linkedin.com/in/username or https://github.com/username). 
-    - DO NOT return Google Search result URLs.
+    - DO NOT return Google Search result URLs or any redirect URLs (e.g., https://www.google.com/url?q=...).
+    - If you only find a search result, you MUST extract the actual profile URL from it.
     
     CALIBRATION:
     If the fingerprint contains "rejectedIds", "feedbackMap", "companyContext", or "locationConstraint", use these to refine your search. 
@@ -129,72 +149,82 @@ export async function searchCandidates(fingerprint: any) {
     Return the result as an array of candidate objects in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      parts: [{ text: `Technical Fingerprint: ${JSON.stringify(fingerprint)}` }]
-    }],
-    tools: [
-      { googleSearch: {} }
-    ] as any,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            title: { type: Type.STRING },
-            company: { type: Type.STRING },
-            bio: { type: Type.STRING },
-            location: { type: Type.STRING },
-            education: { type: Type.STRING },
-            educationHistory: {
-              type: Type.ARRAY,
-              items: {
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [{ text: `Technical Fingerprint: ${JSON.stringify(fingerprint)}` }]
+      }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
+      config: {
+        systemInstruction: systemInstruction + `
+        
+        URL VERIFICATION:
+        - You MUST verify that every URL you return is a direct link to a profile, not a search result or a generic platform home page.
+        - If you are not 100% certain of a direct profile URL, DO NOT return it. It is better to have fewer links than broken ones.
+        - DO NOT guess or hallucinate URLs based on names (e.g., do not assume https://github.com/john-doe exists just because the name is John Doe).
+        - For LinkedIn, ensure the URL follows the /in/ or /pub/ format.
+        - For GitHub, ensure it's a user profile, not a repository or a search page.
+        `,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              title: { type: Type.STRING },
+              company: { type: Type.STRING },
+              bio: { type: Type.STRING },
+              location: { type: Type.STRING },
+              education: { type: Type.STRING },
+              educationHistory: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    school: { type: Type.STRING },
+                    degree: { type: Type.STRING },
+                    field: { type: Type.STRING },
+                    year: { type: Type.STRING }
+                  },
+                  required: ["school"]
+                }
+              },
+              platform: { type: Type.STRING },
+              url: { type: Type.STRING },
+              score: { type: Type.NUMBER },
+              scoringBreakdown: {
                 type: Type.OBJECT,
                 properties: {
-                  school: { type: Type.STRING },
-                  degree: { type: Type.STRING },
-                  field: { type: Type.STRING },
-                  year: { type: Type.STRING }
+                  techMatch: { type: Type.NUMBER },
+                  contributionMatch: { type: Type.NUMBER },
+                  seniorityMatch: { type: Type.NUMBER },
+                  educationMatch: { type: Type.NUMBER }
                 },
-                required: ["school"]
-              }
-            },
-            platform: { type: Type.STRING },
-            url: { type: Type.STRING },
-            score: { type: Type.NUMBER },
-            scoringBreakdown: {
-              type: Type.OBJECT,
-              properties: {
-                techMatch: { type: Type.NUMBER },
-                contributionMatch: { type: Type.NUMBER },
-                seniorityMatch: { type: Type.NUMBER },
-                educationMatch: { type: Type.NUMBER }
+                required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
               },
-              required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
+              reasoning: { type: Type.STRING },
+              impactSummary: { type: Type.STRING }
             },
-            reasoning: { type: Type.STRING },
-            impactSummary: { type: Type.STRING }
-          },
-          required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "score", "scoringBreakdown", "reasoning", "impactSummary"]
+            required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "score", "scoringBreakdown", "reasoning", "impactSummary"]
+          }
         }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini (Search):", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini (Search):", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function enrichCandidateProfile(candidate: any) {
@@ -210,7 +240,8 @@ export async function enrichCandidateProfile(candidate: any) {
     - If the Primary URL says "MTS @ Reflection AI", and search results show an "Allen Wang" at Tesla, you MUST IGNORE the Tesla result. The person at the Primary URL is the ONLY person we care about.
     - Ensure all found profiles belong to the SAME person at the Primary URL.
     - DO NOT mix profiles of different people with the same name.
-    - Return DIRECT profile URLs (e.g., https://github.com/username). DO NOT return search result URLs.
+    - Return DIRECT profile URLs (e.g., https://github.com/username). DO NOT return search result URLs or redirect URLs.
+    - If you find a search result, extract the direct link to the profile.
     
     PRIORITY:
     1. Personal Website / Portfolio / Blog (Look for domains like [name].com, [name].github.io, etc.)
@@ -227,60 +258,70 @@ export async function enrichCandidateProfile(candidate: any) {
     Return the result in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      parts: [{ text: `Candidate: ${candidate.name}\nPrimary URL: ${candidate.url}` }]
-    }],
-    tools: [
-      { googleSearch: {} }
-    ] as any,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          socialLinks: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                platform: { type: Type.STRING },
-                url: { type: Type.STRING }
-              },
-              required: ["platform", "url"]
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [{ text: `Candidate: ${candidate.name}\nPrimary URL: ${candidate.url}` }]
+      }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
+      config: {
+        systemInstruction: systemInstruction + `
+        
+        URL VERIFICATION:
+        - You MUST verify that every URL you return is a direct link to a profile, not a search result or a generic platform home page.
+        - If you are not 100% certain of a direct profile URL, DO NOT return it. It is better to have fewer links than broken ones.
+        - DO NOT guess or hallucinate URLs based on names.
+        - For LinkedIn, ensure the URL follows the /in/ or /pub/ format.
+        - For GitHub, ensure it's a user profile, not a repository or a search page.
+        `,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            socialLinks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  platform: { type: Type.STRING },
+                  url: { type: Type.STRING }
+                },
+                required: ["platform", "url"]
+              }
+            },
+            email: { type: Type.STRING },
+            recentActivity: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  platform: { type: Type.STRING },
+                  content: { type: Type.STRING },
+                  date: { type: Type.STRING },
+                  url: { type: Type.STRING }
+                },
+                required: ["platform", "content"]
+              }
             }
           },
-          email: { type: Type.STRING },
-          recentActivity: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                platform: { type: Type.STRING },
-                content: { type: Type.STRING },
-                date: { type: Type.STRING },
-                url: { type: Type.STRING }
-              },
-              required: ["platform", "content"]
-            }
-          }
-        },
-        required: ["socialLinks", "recentActivity"]
+          required: ["socialLinks", "recentActivity"]
+        }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini (Enrichment):", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini (Enrichment):", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function rescoreCandidate(candidate: any, fingerprint: any) {
@@ -299,50 +340,52 @@ export async function rescoreCandidate(candidate: any, fingerprint: any) {
     Return an updated score, breakdown, and reasoning in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      parts: [{ 
-        text: `Technical Fingerprint: ${JSON.stringify(fingerprint)}\n\nCandidate Data: ${JSON.stringify(candidate)}` 
-      }]
-    }],
-    tools: [
-      { googleSearch: {} }
-    ] as any,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          score: { type: Type.NUMBER },
-          scoringBreakdown: {
-            type: Type.OBJECT,
-            properties: {
-              techMatch: { type: Type.NUMBER },
-              contributionMatch: { type: Type.NUMBER },
-              seniorityMatch: { type: Type.NUMBER },
-              educationMatch: { type: Type.NUMBER }
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [{ 
+          text: `Technical Fingerprint: ${JSON.stringify(fingerprint)}\n\nCandidate Data: ${JSON.stringify(candidate)}` 
+        }]
+      }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            score: { type: Type.NUMBER },
+            scoringBreakdown: {
+              type: Type.OBJECT,
+              properties: {
+                techMatch: { type: Type.NUMBER },
+                contributionMatch: { type: Type.NUMBER },
+                seniorityMatch: { type: Type.NUMBER },
+                educationMatch: { type: Type.NUMBER }
+              },
+              required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
             },
-            required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
+            reasoning: { type: Type.STRING },
+            impactSummary: { type: Type.STRING }
           },
-          reasoning: { type: Type.STRING },
-          impactSummary: { type: Type.STRING }
-        },
-        required: ["score", "scoringBreakdown", "reasoning", "impactSummary"]
+          required: ["score", "scoringBreakdown", "reasoning", "impactSummary"]
+        }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini (Rescore):", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini (Rescore):", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function sourceLookalikes(shortlistedCandidates: any[], count: number, fingerprint: any) {
@@ -363,74 +406,84 @@ export async function sourceLookalikes(shortlistedCandidates: any[], count: numb
     Return the result as an array of ${count} candidate objects in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: [{
-      parts: [{ 
-        text: `Original Fingerprint: ${JSON.stringify(fingerprint)}\n\nCalibration Set (Shortlisted): ${JSON.stringify(shortlistedCandidates)}` 
-      }]
-    }],
-    tools: [
-      { googleSearch: {} }
-    ] as any,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            title: { type: Type.STRING },
-            company: { type: Type.STRING },
-            bio: { type: Type.STRING },
-            location: { type: Type.STRING },
-            education: { type: Type.STRING },
-            educationHistory: {
-              type: Type.ARRAY,
-              items: {
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [{ 
+          text: `Original Fingerprint: ${JSON.stringify(fingerprint)}\n\nCalibration Set (Shortlisted): ${JSON.stringify(shortlistedCandidates)}` 
+        }]
+      }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
+      config: {
+        systemInstruction: systemInstruction + `
+        
+        URL VERIFICATION:
+        - You MUST verify that every URL you return is a direct link to a profile, not a search result or a generic platform home page.
+        - If you are not 100% certain of a direct profile URL, DO NOT return it. It is better to have fewer links than broken ones.
+        - DO NOT guess or hallucinate URLs based on names.
+        - For LinkedIn, ensure the URL follows the /in/ or /pub/ format.
+        - For GitHub, ensure it's a user profile, not a repository or a search page.
+        `,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              title: { type: Type.STRING },
+              company: { type: Type.STRING },
+              bio: { type: Type.STRING },
+              location: { type: Type.STRING },
+              education: { type: Type.STRING },
+              educationHistory: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    school: { type: Type.STRING },
+                    degree: { type: Type.STRING },
+                    field: { type: Type.STRING },
+                    year: { type: Type.STRING }
+                  },
+                  required: ["school"]
+                }
+              },
+              platform: { type: Type.STRING },
+              url: { type: Type.STRING },
+              score: { type: Type.NUMBER },
+              scoringBreakdown: {
                 type: Type.OBJECT,
                 properties: {
-                  school: { type: Type.STRING },
-                  degree: { type: Type.STRING },
-                  field: { type: Type.STRING },
-                  year: { type: Type.STRING }
+                  techMatch: { type: Type.NUMBER },
+                  contributionMatch: { type: Type.NUMBER },
+                  seniorityMatch: { type: Type.NUMBER },
+                  educationMatch: { type: Type.NUMBER }
                 },
-                required: ["school"]
-              }
-            },
-            platform: { type: Type.STRING },
-            url: { type: Type.STRING },
-            score: { type: Type.NUMBER },
-            scoringBreakdown: {
-              type: Type.OBJECT,
-              properties: {
-                techMatch: { type: Type.NUMBER },
-                contributionMatch: { type: Type.NUMBER },
-                seniorityMatch: { type: Type.NUMBER },
-                educationMatch: { type: Type.NUMBER }
+                required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
               },
-              required: ["techMatch", "contributionMatch", "seniorityMatch", "educationMatch"]
+              reasoning: { type: Type.STRING },
+              impactSummary: { type: Type.STRING }
             },
-            reasoning: { type: Type.STRING },
-            impactSummary: { type: Type.STRING }
-          },
-          required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "score", "scoringBreakdown", "reasoning", "impactSummary"]
+            required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "score", "scoringBreakdown", "reasoning", "impactSummary"]
+          }
         }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini (Source):", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini (Source):", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function parseLinkedInProfile(file: { name: string; data: string; mimeType: string }) {
@@ -465,57 +518,59 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
     - impactSummary: (A punchy summary based on the profile)
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: [{
-      parts: [
-        { inlineData: { data: file.data, mimeType: file.mimeType } },
-        { text: "Parse this LinkedIn profile/resume." }
-      ]
-    }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          title: { type: Type.STRING },
-          company: { type: Type.STRING },
-          bio: { type: Type.STRING },
-          location: { type: Type.STRING },
-          education: { type: Type.STRING },
-          educationHistory: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                school: { type: Type.STRING },
-                degree: { type: Type.STRING },
-                field: { type: Type.STRING },
-                year: { type: Type.STRING }
-              },
-              required: ["school"]
-            }
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [
+          { inlineData: { data: file.data, mimeType: file.mimeType } },
+          { text: "Parse this LinkedIn profile/resume." }
+        ]
+      }],
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            title: { type: Type.STRING },
+            company: { type: Type.STRING },
+            bio: { type: Type.STRING },
+            location: { type: Type.STRING },
+            education: { type: Type.STRING },
+            educationHistory: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  school: { type: Type.STRING },
+                  degree: { type: Type.STRING },
+                  field: { type: Type.STRING },
+                  year: { type: Type.STRING }
+                },
+                required: ["school"]
+              }
+            },
+            platform: { type: Type.STRING },
+            url: { type: Type.STRING },
+            impactSummary: { type: Type.STRING }
           },
-          platform: { type: Type.STRING },
-          url: { type: Type.STRING },
-          impactSummary: { type: Type.STRING }
-        },
-        required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "impactSummary"]
+          required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "impactSummary"]
+        }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini:", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini:", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
 export async function parseCandidateFromUrl(url: string) {
@@ -556,60 +611,62 @@ export async function parseCandidateFromUrl(url: string) {
     Return the result in JSON format matching the Candidate schema.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: [{
-      parts: [{ text: `STRICT INSTRUCTION: You MUST only use information found at this specific HUMAN-VERIFIED ANCHOR URL: ${url}. 
-      DO NOT search for the name generally. 
-      Search for the content of this specific URL to verify the current role. 
-      If search results show multiple people with this name, the person at THIS URL is the only one that exists for this task.
-      Prioritize the data structure of the platform this URL belongs to (e.g., LinkedIn for professional history, GitHub for technical info).` }]
-    }],
-    tools: [
-      { googleSearch: {} }
-    ] as any,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          title: { type: Type.STRING },
-          company: { type: Type.STRING },
-          bio: { type: Type.STRING },
-          location: { type: Type.STRING },
-          education: { type: Type.STRING },
-          educationHistory: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                school: { type: Type.STRING },
-                degree: { type: Type.STRING },
-                field: { type: Type.STRING },
-                year: { type: Type.STRING }
-              },
-              required: ["school"]
-            }
+  return callGeminiWithRetry(async () => {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{
+        parts: [{ text: `STRICT INSTRUCTION: You MUST only use information found at this specific HUMAN-VERIFIED ANCHOR URL: ${url}. 
+        DO NOT search for the name generally. 
+        Search for the content of this specific URL to verify the current role. 
+        If search results show multiple people with this name, the person at THIS URL is the only one that exists for this task.
+        Prioritize the data structure of the platform this URL belongs to (e.g., LinkedIn for professional history, GitHub for technical info).` }]
+      }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            title: { type: Type.STRING },
+            company: { type: Type.STRING },
+            bio: { type: Type.STRING },
+            location: { type: Type.STRING },
+            education: { type: Type.STRING },
+            educationHistory: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  school: { type: Type.STRING },
+                  degree: { type: Type.STRING },
+                  field: { type: Type.STRING },
+                  year: { type: Type.STRING }
+                },
+                required: ["school"]
+              }
+            },
+            platform: { type: Type.STRING },
+            url: { type: Type.STRING },
+            impactSummary: { type: Type.STRING }
           },
-          platform: { type: Type.STRING },
-          url: { type: Type.STRING },
-          impactSummary: { type: Type.STRING }
-        },
-        required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "impactSummary"]
+          required: ["name", "title", "company", "bio", "location", "education", "educationHistory", "platform", "url", "impactSummary"]
+        }
       }
-    }
-  } as any);
+    } as any);
 
-  const text = response.text;
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : text;
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error("Failed to parse JSON from Gemini (URL parser):", text);
-    throw new Error("Invalid response format from AI");
-  }
+    const text = response.text;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Failed to parse JSON from Gemini (URL parser):", text);
+      throw new Error("Invalid response format from AI");
+    }
+  });
 }
 
