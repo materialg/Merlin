@@ -23,7 +23,7 @@ async function startServer() {
     const { args } = req.body;
 
     try {
-      const gemini = await import("./src/services/gemini.js");
+      const gemini = await import("./src/services/gemini.ts");
       const fn = (gemini as any)[action];
       
       if (typeof fn !== "function") {

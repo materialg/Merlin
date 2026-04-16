@@ -48,6 +48,7 @@ export default function ContactsView({
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [contactUrl, setContactUrl] = useState('');
   const [isParsing, setIsParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
   const [parsedCandidate, setParsedCandidate] = useState<Partial<Contact> | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [expandedEducationId, setExpandedEducationId] = useState<string | null>(null);
@@ -307,31 +308,38 @@ export default function ContactsView({
                           type="text"
                           placeholder="LinkedIn, X, or GitHub URL..."
                           value={contactUrl}
-                          onChange={(e) => setContactUrl(e.target.value)}
+                          onChange={(e) => {
+                            setContactUrl(e.target.value);
+                            setParseError(null);
+                          }}
                           onKeyDown={async (e) => {
                             if (e.key === 'Enter' && contactUrl) {
                               setIsParsing(true);
+                              setParseError(null);
                               try {
                                 const data = await onParseUrl(contactUrl);
                                 setParsedCandidate(data);
-                              } catch (err) {
+                              } catch (err: any) {
                                 console.error(err);
+                                setParseError(err.message || 'Failed to parse URL. Please check the URL and try again.');
                               } finally {
                                 setIsParsing(false);
                               }
                             }
                           }}
-                          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          className={`${parseError ? 'border-red-300 ring-red-500/10' : 'border-gray-200'} flex-1 px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`}
                         />
                         <button 
                           onClick={async () => {
                             if (contactUrl) {
                               setIsParsing(true);
+                              setParseError(null);
                               try {
                                 const data = await onParseUrl(contactUrl);
                                 setParsedCandidate(data);
-                              } catch (err) {
+                              } catch (err: any) {
                                 console.error(err);
+                                setParseError(err.message || 'Failed to parse URL. Please check the URL and try again.');
                               } finally {
                                 setIsParsing(false);
                               }
@@ -347,6 +355,12 @@ export default function ContactsView({
                           )}
                         </button>
                       </div>
+                      {parseError && (
+                        <p className="text-xs text-red-500 font-medium px-1 flex items-center gap-1">
+                          <X className="w-3 h-3" />
+                          {parseError}
+                        </p>
+                      )}
                     </div>
 
                     <div className="relative">
