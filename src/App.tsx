@@ -582,6 +582,14 @@ export default function App() {
 
     await setDoc(sessionRef, cleanObject(updateData), { merge: true })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+
+    // Automatically add to contacts if being shortlisted
+    if (!isShortlisted) {
+      const candidate = session.candidates.find(c => c.id === candidateId);
+      if (candidate) {
+        await handleAddContact(candidate);
+      }
+    }
   };
 
   const handleRejectCandidate = async (sessionId: string, candidateId: string, feedback?: string) => {
