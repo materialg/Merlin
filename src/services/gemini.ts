@@ -1,10 +1,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const apiKey = process.env.GEMINI_API_KEY || "";
-if (!apiKey) {
-  console.warn("GEMINI_API_KEY is not set. AI features will not work.");
+const apiKey = typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || "") : "";
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+async function proxyCall(action: string, args: any[]) {
+  const response = await fetch(`/api/gemini/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ args })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || `Proxy error: ${response.statusText}`);
+  }
+  
+  return response.json();
 }
-const ai = new GoogleGenAI({ apiKey });
 
 async function callGeminiWithRetry(fn: () => Promise<any>, retries = 3, delay = 2000) {
   for (let i = 0; i < retries; i++) {
@@ -24,7 +36,11 @@ async function callGeminiWithRetry(fn: () => Promise<any>, retries = 3, delay = 
 }
 
 export async function extractTechnicalFingerprint(prompt: string, attachments: { name: string; data: string; mimeType: string }[], urls: string[], companyLink?: string) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing. Please check your environment variables.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('extractTechnicalFingerprint', [prompt, attachments, urls, companyLink]);
+  }
+
+  if (!ai) throw new Error("GEMINI_API_KEY is missing. Please check your environment variables.");
   
   const systemInstruction = `
     You are an expert technical recruiter and systems engineer.
@@ -99,7 +115,10 @@ export async function extractTechnicalFingerprint(prompt: string, attachments: {
 }
 
 export async function searchCandidates(fingerprint: any) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('searchCandidates', [fingerprint]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are a search agent specialized in finding engineers on LinkedIn, GitHub, ArXiv, and HuggingFace.
     Use the provided technical fingerprint to search for and identify EXACTLY 10 top candidates. 
@@ -228,7 +247,10 @@ export async function searchCandidates(fingerprint: any) {
 }
 
 export async function enrichCandidateProfile(candidate: any) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('enrichCandidateProfile', [candidate]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are a profile enrichment agent. Given a candidate's name and primary profile URL,
     use Google Search to find their other social profiles and personal presence.
@@ -325,7 +347,10 @@ export async function enrichCandidateProfile(candidate: any) {
 }
 
 export async function rescoreCandidate(candidate: any, fingerprint: any) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('rescoreCandidate', [candidate, fingerprint]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are a senior technical recruiter. 
     A candidate's profile has been updated with new information (e.g., new social links).
@@ -389,7 +414,10 @@ export async function rescoreCandidate(candidate: any, fingerprint: any) {
 }
 
 export async function sourceLookalikes(shortlistedCandidates: any[], count: number, fingerprint: any) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('sourceLookalikes', [shortlistedCandidates, count, fingerprint]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are a high-volume sourcing agent. 
     You have been provided with a "Calibration Set" of 10 top-tier candidates that the user has already approved.
@@ -487,7 +515,10 @@ export async function sourceLookalikes(shortlistedCandidates: any[], count: numb
 }
 
 export async function parseLinkedInProfile(file: { name: string; data: string; mimeType: string }) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('parseLinkedInProfile', [file]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are an expert resume and LinkedIn profile parser.
     Extract the candidate's information from the provided file.
@@ -574,7 +605,10 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
 }
 
 export async function parseCandidateFromUrl(url: string) {
-  if (!apiKey) throw new Error("GEMINI_API_KEY is missing.");
+  if (typeof window !== 'undefined' && !apiKey) {
+    return proxyCall('parseCandidateFromUrl', [url]);
+  }
+  if (!ai) throw new Error("GEMINI_API_KEY is missing.");
   const systemInstruction = `
     You are an expert technical recruiter and profile analyst.
     You are provided with a specific profile URL (LinkedIn, GitHub, X, etc.).
