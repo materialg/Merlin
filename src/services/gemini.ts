@@ -431,6 +431,8 @@ export async function parseLinkedInProfile(file: { name: string; data: string; m
     - The provided file data is the ONLY source of truth. 
     - Identify their ABSOLUTE CURRENT title and ABSOLUTE CURRENT company. 
     - ABSOLUTE PRIORITY: The role explicitly marked as "Present" or "Current" in the experience section.
+    - ACQUISITION RULE: If a role mentions an acquisition (e.g., "Modular acquired BentoML" or "Joined via acquisition of BentoML"), the acquiring company (e.g., Modular) is the CURRENT company.
+    - LOCATION RULE: The candidate's location MUST match the location of their most recent "Present" role. If the profile says "Toronto" for the current role, the location is "Toronto", even if previous roles were in "San Francisco".
     - If there are multiple "Present" roles, choose the one that matches the profile headline or is listed at the very top of the experience list.
     - IGNORE any role that has an end date (e.g., "2018 - 2022").
     - IGNORE "Ex-", "Former", or "Past" markers in the headline (e.g., "Ex: Meta" means they NO LONGER work at Meta).
@@ -520,6 +522,8 @@ export async function parseCandidateFromUrl(url: string) {
     - Identify their ABSOLUTE CURRENT title and ABSOLUTE CURRENT company. 
     - "MTS" stands for Member of Technical Staff and is a high-level technical role. If you see "MTS @ Reflection AI", that is their current role.
     - ABSOLUTE PRIORITY: The role explicitly marked as "Present" or "Current" in the experience section.
+    - ACQUISITION RULE: If a role mentions an acquisition (e.g., "Modular acquired BentoML" or "Joined via acquisition of BentoML"), the acquiring company (e.g., Modular) is the CURRENT company.
+    - LOCATION RULE: The candidate's location MUST match the location of their most recent "Present" role. If the profile says "Toronto" for the current role, the location is "Toronto", even if previous roles were in "San Francisco".
     - IGNORE "Ex-", "Former", or "Past" markers in the headline. If it says "Ex: Meta", they do NOT work at Meta.
     - If the profile says "MTS @ Reflection AI" and you find another "Allen Wang" at Tesla, the Tesla one is WRONG. Use the one at the URL.
     - Extract their bio, location, and education history.
@@ -540,7 +544,7 @@ export async function parseCandidateFromUrl(url: string) {
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: [{
       parts: [{ text: `STRICT INSTRUCTION: You MUST only use information found at this specific HUMAN-VERIFIED ANCHOR URL: ${url}. 
       DO NOT search for the name generally. 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, RotateCcw, Linkedin, Github, Mail, Globe, MapPin, GraduationCap, Building2, Trash2, Plus, X, Check, Users, Briefcase, Pencil, Sparkles, RefreshCw, Star } from 'lucide-react';
+import { Search, Filter, RotateCcw, Linkedin, Github, Mail, Globe, MapPin, GraduationCap, Building2, Trash2, Plus, X, Check, Users, Briefcase, Pencil, Sparkles, RefreshCw, Star, ChevronDown } from 'lucide-react';
 import { Contact, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { getEduCategory } from '../lib/utils';
@@ -41,6 +41,8 @@ export default function ContactsView({
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [contactUrl, setContactUrl] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [expandedEducationId, setExpandedEducationId] = useState<string | null>(null);
+  const [activeEduFilters, setActiveEduFilters] = useState<Record<string, string[]>>({});
   const [socialModal, setSocialModal] = useState<{
     isOpen: boolean;
     contact: Contact | null;
@@ -118,6 +120,19 @@ export default function ContactsView({
       : [...currentProjects, projectName];
     
     onUpdateContact(contactId, { projects });
+  };
+
+  const toggleEduFilter = (contactId: string, category: string) => {
+    setActiveEduFilters(prev => {
+      const current = prev[contactId] || ['B', 'M', 'P'];
+      const next = current.includes(category)
+        ? current.filter(c => c !== category)
+        : [...current, category];
+      return { ...prev, [contactId]: next };
+    });
+    if (expandedEducationId !== contactId) {
+      setExpandedEducationId(contactId);
+    }
   };
 
   return (
@@ -459,56 +474,130 @@ export default function ContactsView({
                 </td>
                 <td className="py-4 px-4 text-sm text-gray-600">{contact.title}</td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-gray-400" />
-                    <div className="flex items-center gap-1">
-                      {['B', 'M', 'P'].map((cat) => {
-                        const hasDegree = contact.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
-                        
-                        let badgeStyles = "";
-                        if (hasDegree) {
-                          badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100';
-                        } else {
-                          badgeStyles = 'bg-gray-50 text-gray-300 border-gray-100 opacity-50';
-                        }
+                  {(contact.education || (contact.educationHistory && contact.educationHistory.length > 0)) && (
+                    <div className="relative">
+                      <div className="flex items-center gap-1.5">
+                        <button 
+                          onClick={() => {
+                            setExpandedEducationId(expandedEducationId === contact.id ? null : contact.id);
+                            if (expandedEducationId !== contact.id) {
+                              setActiveEduFilters(prev => ({ ...prev, [contact.id]: ['P', 'M', 'B'] }));
+                            }
+                          }}
+                          className={`p-2 rounded-lg transition-all ${expandedEducationId === contact.id ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50 hover:text-blue-600'}`}
+                          title="View Education"
+                        >
+                          <GraduationCap className="w-4 h-4" />
+                        </button>
 
-                        return (
-                          <div
-                            key={cat}
-                            className={`w-5 h-5 rounded-full border text-[8px] font-black flex items-center justify-center transition-all shadow-sm ${badgeStyles}`}
-                            title={hasDegree ? `${cat === 'B' ? "Bachelor's" : cat === 'M' ? "Master's" : "PhD"} Degree` : "No data available"}
+                        <div className="flex items-center gap-1">
+                          {['P', 'M', 'B'].map((cat) => {
+                            const hasDegree = contact.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
+                            const isActive = activeEduFilters[contact.id]?.includes(cat);
+                            
+                            let badgeStyles = "";
+                            if (hasDegree) {
+                              if (isActive) {
+                                badgeStyles = cat === 'P' ? 'bg-indigo-800 text-white border-indigo-800' : 
+                                             cat === 'M' ? 'bg-blue-700 text-white border-blue-700' : 
+                                             'bg-blue-600 text-white border-blue-600';
+                              } else {
+                                badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100 hover:border-blue-300 hover:bg-blue-100 cursor-pointer';
+                              }
+                            } else {
+                              badgeStyles = 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed opacity-50';
+                            }
+
+                            return (
+                              <button
+                                key={cat}
+                                onClick={() => hasDegree && toggleEduFilter(contact.id, cat)}
+                                disabled={!hasDegree}
+                                className={`w-5 h-5 rounded-full border text-[8px] font-black flex items-center justify-center transition-all shadow-sm z-10 ${badgeStyles}`}
+                                title={hasDegree ? `${cat === 'B' ? "Bachelor's" : cat === 'M' ? "Master's" : "PhD"} Degree` : "No data available"}
+                              >
+                                {cat}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <AnimatePresence>
+                        {expandedEducationId === contact.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="absolute z-50 top-full left-0 mt-2 w-80 bg-white border border-gray-100 rounded-xl shadow-xl p-4 space-y-3"
                           >
-                            {cat}
-                          </div>
-                        );
-                      })}
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Education History</span>
+                              <button onClick={(e) => { e.stopPropagation(); setExpandedEducationId(null); }} className="p-1 hover:bg-gray-100 rounded">
+                                <X className="w-3 h-3 text-gray-400" />
+                              </button>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto pr-1 space-y-3">
+                              {contact.educationHistory && contact.educationHistory.length > 0 ? (
+                                ['P', 'M', 'B']
+                                  .filter(cat => {
+                                    const filters = activeEduFilters[contact.id] || ['P', 'M', 'B'];
+                                    return filters.includes(cat);
+                                  })
+                                  .map(cat => {
+                                    const edus = contact.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
+                                    return edus?.map((edu, i) => (
+                                      <div key={`${cat}-${i}`} className="text-xs text-gray-600 border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                                        <div className="flex flex-wrap gap-1 items-center">
+                                          {edu.year && <span className="font-bold text-gray-900">{edu.year}</span>}
+                                          {edu.year && <span className="text-gray-300">•</span>}
+                                          <span className="font-bold text-gray-900">{edu.school}</span>
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap gap-1 items-center">
+                                          <span className="text-blue-600 font-semibold">{edu.degree}</span>
+                                          {edu.field && <span className="text-gray-300">•</span>}
+                                          {edu.field && <span className="italic text-gray-500">{edu.field}</span>}
+                                        </div>
+                                      </div>
+                                    ));
+                                  })
+                              ) : (
+                                <p className="text-xs text-gray-400 italic py-2">No detailed history available.</p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center justify-between group/loc">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{(contact.location || 'Unknown').replace(/,?\s*USA$/i, '')}</span>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover/loc:opacity-100 transition-all">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onRefreshContact(contact.id); }}
+                        disabled={refreshingIds.includes(contact.id)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
+                        title="Refresh profile data"
+                      >
+                        <RotateCcw className={`w-3.5 h-3.5 ${refreshingIds.includes(contact.id) ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onDeleteContact(contact.id); }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Delete contact"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{(contact.location || 'Unknown').replace(/,?\s*USA$/i, '')}</span>
-                  </div>
-                </td>
                 <td className="py-4 px-4 text-right">
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <button 
-                      onClick={() => onRefreshContact(contact.id)}
-                      disabled={refreshingIds.includes(contact.id)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
-                      title="Refresh profile data"
-                    >
-                      <RotateCcw className={`w-4 h-4 ${refreshingIds.includes(contact.id) ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button 
-                      onClick={() => onDeleteContact(contact.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Delete contact"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {/* Empty or other actions */}
                 </td>
               </motion.tr>
             ))}

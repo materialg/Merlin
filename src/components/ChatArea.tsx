@@ -565,7 +565,7 @@ export default function ChatArea({
                                       setExpandedEducationId(expandedEducationId === candidate.id ? null : candidate.id);
                                       if (expandedEducationId !== candidate.id) {
                                         // Default to showing all if opening via main button
-                                        setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['B', 'M', 'P'] }));
+                                        setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['P', 'M', 'B'] }));
                                       }
                                     }}
                                     className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors group"
@@ -578,7 +578,7 @@ export default function ChatArea({
                                   </button>
 
                                   <div className="flex items-center gap-1.5">
-                                    {['B', 'M', 'P'].map((cat) => {
+                                    {['P', 'M', 'B'].map((cat) => {
                                       const hasDegree = candidate.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
                                       const isActive = activeEduFilters[candidate.id]?.includes(cat);
                                       
@@ -618,23 +618,25 @@ export default function ChatArea({
                                       exit={{ height: 0, opacity: 0 }}
                                       className="overflow-hidden pl-6 space-y-2 border-l-2 border-gray-100 ml-2"
                                     >
-                                      {candidate.educationHistory
-                                        .filter(edu => {
+                                      {['P', 'M', 'B']
+                                        .filter(cat => {
                                           const filters = activeEduFilters[candidate.id] || ['B', 'M', 'P'];
-                                          const cat = getEduCategory(edu.degree);
-                                          return !cat || filters.includes(cat);
+                                          return filters.includes(cat);
                                         })
-                                        .map((edu, i) => (
-                                          <div key={i} className="text-xs text-gray-500 py-1.5 flex flex-wrap gap-1 items-center">
-                                            {edu.year && <span className="font-bold text-gray-700">{edu.year}</span>}
-                                            {edu.year && <span className="text-gray-300">•</span>}
-                                            <span className="font-bold text-gray-700">{edu.school}</span>
-                                            <span className="text-gray-300">•</span>
-                                            <span className="text-blue-600 font-medium">{edu.degree}</span>
-                                            {edu.field && <span className="text-gray-300">•</span>}
-                                            {edu.field && <span className="italic">{edu.field}</span>}
-                                          </div>
-                                        ))}
+                                        .map(cat => {
+                                          const edus = candidate.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
+                                          return edus?.map((edu, i) => (
+                                            <div key={`${cat}-${i}`} className="text-xs text-gray-500 py-1.5 flex flex-wrap gap-1 items-center">
+                                              {edu.year && <span className="font-bold text-gray-700">{edu.year}</span>}
+                                              {edu.year && <span className="text-gray-300">•</span>}
+                                              <span className="font-bold text-gray-700">{edu.school}</span>
+                                              <span className="text-gray-300">•</span>
+                                              <span className="text-blue-600 font-medium">{edu.degree}</span>
+                                              {edu.field && <span className="text-gray-300">•</span>}
+                                              {edu.field && <span className="italic">{edu.field}</span>}
+                                            </div>
+                                          ));
+                                        })}
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
@@ -754,7 +756,7 @@ export default function ChatArea({
                                       onClick={() => {
                                         setExpandedEducationId(expandedEducationId === candidate.id ? null : candidate.id);
                                         if (expandedEducationId !== candidate.id) {
-                                          setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['B', 'M', 'P'] }));
+                                          setActiveEduFilters(prev => ({ ...prev, [candidate.id]: ['P', 'M', 'B'] }));
                                         }
                                       }}
                                       className={`p-2 rounded-lg transition-all ${expandedEducationId === candidate.id ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50 hover:text-blue-600'}`}
@@ -764,7 +766,7 @@ export default function ChatArea({
                                     </button>
 
                                     <div className="flex items-center gap-1">
-                                      {['B', 'M', 'P'].map((cat) => {
+                                      {['P', 'M', 'B'].map((cat) => {
                                         const hasDegree = candidate.educationHistory?.some(edu => getEduCategory(edu.degree) === cat);
                                         const isActive = activeEduFilters[candidate.id]?.includes(cat);
                                         
@@ -812,26 +814,28 @@ export default function ChatArea({
                                         </div>
                                         <div className="max-h-64 overflow-y-auto pr-1 space-y-3">
                                           {candidate.educationHistory && candidate.educationHistory.length > 0 ? (
-                                            candidate.educationHistory
-                                              .filter(edu => {
-                                                const filters = activeEduFilters[candidate.id] || ['B', 'M', 'P'];
-                                                const cat = getEduCategory(edu.degree);
-                                                return !cat || filters.includes(cat);
+                                            ['P', 'M', 'B']
+                                              .filter(cat => {
+                                                const filters = activeEduFilters[candidate.id] || ['P', 'M', 'B'];
+                                                return filters.includes(cat);
                                               })
-                                              .map((edu, i) => (
-                                                <div key={i} className="text-xs text-gray-600 border-b border-gray-50 last:border-0 pb-3 last:pb-0">
-                                                  <div className="flex flex-wrap gap-1 items-center">
-                                                    {edu.year && <span className="font-bold text-gray-900">{edu.year}</span>}
-                                                    {edu.year && <span className="text-gray-300">•</span>}
-                                                    <span className="font-bold text-gray-900">{edu.school}</span>
+                                              .map(cat => {
+                                                const edus = candidate.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
+                                                return edus?.map((edu, i) => (
+                                                  <div key={`${cat}-${i}`} className="text-xs text-gray-600 border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                                                    <div className="flex flex-wrap gap-1 items-center">
+                                                      {edu.year && <span className="font-bold text-gray-900">{edu.year}</span>}
+                                                      {edu.year && <span className="text-gray-300">•</span>}
+                                                      <span className="font-bold text-gray-900">{edu.school}</span>
+                                                    </div>
+                                                    <div className="mt-1 flex flex-wrap gap-1 items-center">
+                                                      <span className="text-blue-600 font-semibold">{edu.degree}</span>
+                                                      {edu.field && <span className="text-gray-300">•</span>}
+                                                      {edu.field && <span className="italic text-gray-500">{edu.field}</span>}
+                                                    </div>
                                                   </div>
-                                                  <div className="mt-1 flex flex-wrap gap-1 items-center">
-                                                    <span className="text-blue-600 font-semibold">{edu.degree}</span>
-                                                    {edu.field && <span className="text-gray-300">•</span>}
-                                                    {edu.field && <span className="italic text-gray-500">{edu.field}</span>}
-                                                  </div>
-                                                </div>
-                                              ))
+                                                ));
+                                              })
                                           ) : (
                                             <p className="text-xs text-gray-400 italic py-2">No detailed history available.</p>
                                           )}

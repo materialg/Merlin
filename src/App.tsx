@@ -727,17 +727,12 @@ export default function App() {
       // 2. Parse LinkedIn Profile
       const parsedCandidate = await parseLinkedInProfile(fileData);
       
-      // 3. Enrich for social links and activity
-      const enrichment = await enrichCandidateProfile({ name: parsedCandidate.name, url: parsedCandidate.url });
-      
       const candidate: Candidate = {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
-        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
-        ),
-        recentActivity: enrichment.recentActivity,
-        email: enrichment.email || parsedCandidate.email,
+        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        recentActivity: [],
+        email: parsedCandidate.email,
         score: 100,
         scoringBreakdown: {
           techMatch: 100,
@@ -764,17 +759,12 @@ export default function App() {
       // 1. Parse Candidate from URL
       const parsedCandidate = await parseCandidateFromUrl(url);
       
-      // 2. Enrich for social links and activity
-      const enrichment = await enrichCandidateProfile({ name: parsedCandidate.name, url });
-      
       const candidate: Candidate = {
         id: `manual-${Date.now()}`,
         ...parsedCandidate,
-        socialLinks: [...(parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : []), ...(enrichment.socialLinks || [])].filter((link, index, self) => 
-          index === self.findIndex((t) => t.url === link.url || t.platform === link.platform)
-        ),
-        recentActivity: enrichment.recentActivity,
-        email: enrichment.email || parsedCandidate.email,
+        socialLinks: parsedCandidate.url ? [{ platform: parsedCandidate.platform, url: parsedCandidate.url }] : [],
+        recentActivity: [],
+        email: parsedCandidate.email,
         score: 100,
         scoringBreakdown: {
           techMatch: 100,
