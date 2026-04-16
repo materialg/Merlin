@@ -17,27 +17,6 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // Gemini Proxy Routes
-  app.post("/api/gemini/:action", async (req, res) => {
-    const { action } = req.params;
-    const { args } = req.body;
-
-    try {
-      const gemini = await import("./src/services/gemini.ts");
-      const fn = (gemini as any)[action];
-      
-      if (typeof fn !== "function") {
-        return res.status(400).json({ error: `Invalid action: ${action}` });
-      }
-
-      const result = await fn(...args);
-      res.json(result);
-    } catch (error: any) {
-      console.error(`Gemini Proxy Error (${action}):`, error);
-      res.status(500).json({ error: error.message || "Internal server error" });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
