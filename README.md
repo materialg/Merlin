@@ -1,5 +1,12 @@
-Welcome to Talent Wizard AI - where Merlin will use LinkedIn, Github, X, Arxiv, Hugging Face, and many more sources to find amazing candidates!
-All powered by Google Gemini 3.1 PRO.
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
+
+# Run and deploy your AI Studio app
+
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/f8d21a05-e34e-4d11-95c5-037831b99b49
 
 ## Run Locally
 

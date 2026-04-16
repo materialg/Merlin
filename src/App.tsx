@@ -613,7 +613,9 @@ export default function App() {
     // Only trigger re-search if it's a NEW rejection
     if (!isAlreadyRejected) {
       try {
-        const fingerprint = await extractTechnicalFingerprint(session.prompt, [], session.urls);
+        // Use existing fingerprint to save time/tokens
+        const fingerprint = session.fingerprint || await extractTechnicalFingerprint(session.prompt, [], session.urls);
+        
         const results = await searchCandidates({ 
           ...fingerprint, 
           rejectedIds: newRejected,
@@ -621,8 +623,11 @@ export default function App() {
         });
         const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
         
-        // Find a candidate not already in the list
-        const newCandidateData = candidatesArray.find((c: any) => !session.candidates.some(existing => existing.name === c.name));
+        // Find a candidate not already in the list and not in rejectedIds
+        const newCandidateData = candidatesArray.find((c: any) => 
+          !session.candidates.some(existing => existing.name === c.name) &&
+          !newRejected.includes(c.id)
+        );
         
         if (newCandidateData) {
           const newCandidate: Candidate = {
