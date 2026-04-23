@@ -64,6 +64,8 @@ export interface SearchSession {
   plan: string;
   sources: string[];
   fingerprint?: any;
+  querySpec?: any;
+  esQuery?: any;
   candidates: Candidate[];
   status: 'idle' | 'searching' | 'completed' | 'error';
   attachments: { name: string; type: string; url?: string }[];

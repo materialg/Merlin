@@ -453,24 +453,22 @@ export default function ChatArea({
                   )}
                 </div>
 
-                {activeTab === 'results' && session.status === 'searching' && session.plan && (
-                  <motion.div 
+                {activeTab === 'results' && session.querySpec && (
+                  <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="bg-gray-50 border border-gray-200 rounded-xl p-5"
                   >
                     <div className="space-y-3">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        <span className="font-bold">Plan:</span> {session.plan}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sources:</span>
-                        {session.sources.map(source => (
-                          <span key={source} className="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-600 font-medium">
-                            {source}
-                          </span>
-                        ))}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Query spec</span>
+                        {session.querySpec.title && (
+                          <span className="text-xs font-semibold text-gray-700">{session.querySpec.title}</span>
+                        )}
                       </div>
+                      <pre className="text-[11px] text-gray-700 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white border border-gray-100 rounded p-3">
+{JSON.stringify(session.querySpec, null, 2)}
+                      </pre>
                     </div>
                   </motion.div>
                 )}

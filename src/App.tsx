@@ -6,7 +6,7 @@ import SearchInput from './components/SearchInput';
 import ContactsView from './components/ContactsView';
 import ProjectsView from './components/ProjectsView';
 import { SearchSession, Candidate, ViewMode, NavTab, Contact, Project } from './types';
-import { extractTechnicalFingerprint, searchCandidates, enrichCandidateProfile, rescoreCandidate, sourceLookalikes, parseLinkedInProfile, parseCandidateFromUrl } from './services/gemini';
+import { enrichCandidateProfile, rescoreCandidate, sourceLookalikes, parseLinkedInProfile, parseCandidateFromUrl } from './services/gemini';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './lib/firebase';
 import { cleanObject, cleanUrl } from './lib/utils';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -154,11 +154,16 @@ export default function App() {
       return;
     }
 
+    if (files.length === 0) {
+      alert('Attach a Job Description (PDF) to start a search.');
+      return;
+    }
+
     const sessionId = Date.now().toString();
     const newSession: SearchSession = {
       id: sessionId,
       title: 'New Search',
-      prompt: prompt || (files.length > 0 ? `Search with ${files.length} files` : urls.length > 0 ? `Search with ${urls.length} URLs` : 'New Search'),
+      prompt: prompt || `Search with ${files[0].name}`,
       timestamp: new Date().toISOString(),
       plan: '',
       sources: [],
@@ -173,78 +178,59 @@ export default function App() {
     setActiveSessionId(sessionId);
 
     try {
-      // 1. Read files as base64
-      const fileContents = await Promise.all(files.map(async (file) => {
-        return new Promise<{ name: string; data: string; mimeType: string }>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = (reader.result as string).split(',')[1];
-            resolve({ name: file.name, data: base64, mimeType: file.type });
-          };
-          reader.readAsDataURL(file);
-        });
-      }));
-
-      // 2. Extract Fingerprint
-      const fingerprint = await extractTechnicalFingerprint(prompt, fileContents, urls);
-      
-      await setDoc(sessionRef, {
-        title: (fingerprint.title && fingerprint.title.trim()) ? fingerprint.title.trim() : newSession.title,
-        plan: fingerprint.plan,
-        sources: fingerprint.sources,
-        fingerprint
-      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-      // 3. Search Candidates
-      const results = await searchCandidates(fingerprint);
-      
-      // Handle potential array wrapping or direct array
-      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
-
-      let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const rawUrl = r.url || '';
-        const url = cleanUrl(rawUrl);
-        let platform = (r.platform || 'other').toLowerCase() as any;
-        if (url) {
-          if (url.includes('linkedin.com')) platform = 'linkedin';
-          else if (url.includes('github.com')) platform = 'github';
-          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
-          else if (url.includes('huggingface.co')) platform = 'huggingface';
-          else if (url.includes('arxiv.org')) platform = 'arxiv';
-        }
-        return {
-          id: `${sessionId}-${i}`,
-          ...r,
-          url,
-          platform,
-          socialLinks: url ? [{ platform, url }] : []
-        };
+      const jdFile = files[0];
+      const jd_base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.readAsDataURL(jdFile);
       });
 
-      // Sort by score descending
+      const resp = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jd_base64,
+          jd_mime: jdFile.type,
+          context: prompt,
+          sessionId,
+        }),
+      });
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+        throw new Error(errBody.error || `Search failed (${resp.status})`);
+      }
+      const { querySpec, esQuery, candidates: pdlCandidates } = await resp.json();
+
+      const candidates: Candidate[] = (pdlCandidates || []).map((c: any) => ({
+        ...c,
+        url: cleanUrl(c.url || ''),
+      }));
       candidates.sort((a, b) => b.score - a.score);
 
-      await setDoc(sessionRef, { candidates }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
+      await setDoc(sessionRef, {
+        title: querySpec?.title || newSession.title,
+        querySpec,
+        esQuery,
+        candidates,
+      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
 
-      // 3. Enrich each candidate
       for (const candidate of candidates) {
         try {
           const enrichment = await enrichCandidateProfile(candidate);
-          
-          // We need to get the latest session data to update candidates correctly
+
           setSessions(prev => {
             const currentSession = prev.find(s => s.id === sessionId);
             if (!currentSession) return prev;
-            
-            const updatedCandidates = currentSession.candidates.map(c => 
+
+            const updatedCandidates = currentSession.candidates.map(c =>
               c.id === candidate.id ? {
                 ...c,
                 socialLinks: [
                   ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
                   ...(c.socialLinks || [])
-                ].filter((link, index, self) => 
-                  index === self.findIndex((t) => 
-                    t.url === link.url || 
+                ].filter((link, index, self) =>
+                  index === self.findIndex((t) =>
+                    t.url === link.url ||
                     t.platform.toLowerCase() === link.platform.toLowerCase()
                   )
                 ),
@@ -265,103 +251,13 @@ export default function App() {
     } catch (error: any) {
       console.error('Search failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      await setDoc(sessionRef, { 
+      await setDoc(sessionRef, {
         status: 'error',
-        error: errorMessage 
+        error: errorMessage
       }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
     }
   };
 
-  const handleRestartSearch = async () => {
-    if (!activeSession || !user) return;
-    
-    const sessionId = activeSession.id;
-    const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
-    
-    await setDoc(sessionRef, { 
-      status: 'searching',
-      candidates: [],
-      sourcedCandidates: [],
-      sourcingStatus: 'idle',
-      isShortlistLocked: false,
-      shortlistedIds: [],
-      rejectedIds: [],
-      feedbackMap: {}
-    }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-    try {
-      let fingerprint = activeSession.fingerprint;
-      
-      if (!fingerprint) {
-        fingerprint = await extractTechnicalFingerprint(activeSession.prompt, [], activeSession.urls);
-      }
-
-      const results = await searchCandidates(fingerprint);
-      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
-
-      let candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const rawUrl = r.url || '';
-        const url = cleanUrl(rawUrl);
-        let platform = (r.platform || 'other').toLowerCase() as any;
-        if (url) {
-          if (url.includes('linkedin.com')) platform = 'linkedin';
-          else if (url.includes('github.com')) platform = 'github';
-          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
-          else if (url.includes('huggingface.co')) platform = 'huggingface';
-          else if (url.includes('arxiv.org')) platform = 'arxiv';
-        }
-        return {
-          id: `${sessionId}-${i}-${Date.now()}`,
-          ...r,
-          url,
-          platform,
-          socialLinks: url ? [{ platform, url }] : []
-        };
-      });
-
-      candidates.sort((a, b) => b.score - a.score);
-
-      await setDoc(sessionRef, { candidates, status: 'completed' }, { merge: true })
-        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-      // Enrich each candidate
-      for (const candidate of candidates) {
-        try {
-          const enrichment = await enrichCandidateProfile(candidate);
-          setSessions(prev => {
-            const currentSession = prev.find(s => s.id === sessionId);
-            if (!currentSession) return prev;
-            
-            const updatedCandidates = currentSession.candidates.map(c => 
-              c.id === candidate.id ? {
-                ...c,
-                socialLinks: [
-                  ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
-                  ...(c.socialLinks || [])
-                ].filter((link, index, self) => 
-                  index === self.findIndex((t) => 
-                    t.url === link.url || 
-                    t.platform.toLowerCase() === link.platform.toLowerCase()
-                  )
-                ),
-                recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined }))
-              } : c
-            );
-
-            setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
-              .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-            return prev;
-          });
-        } catch (enrichError) {
-          console.error(`Enrichment failed for ${candidate.name}:`, enrichError);
-        }
-      }
-    } catch (error) {
-      console.error('Restart failed:', error);
-      await setDoc(sessionRef, { status: 'error' }, { merge: true })
-        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-    }
-  };
 
   const handleUpdateTitle = async (sessionId: string, newTitle: string) => {
     if (!user) return;
@@ -465,100 +361,9 @@ export default function App() {
 
   const handleUpdatePrompt = async (sessionId: string, newPrompt: string) => {
     if (!user) return;
-    const session = sessions.find(s => s.id === sessionId);
-    if (!session) return;
-
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
-    
-    // 1. Reset session state for new search with new prompt
-    await setDoc(sessionRef, { 
-      prompt: newPrompt,
-      status: 'searching',
-      candidates: [],
-      sourcedCandidates: [],
-      sourcingStatus: 'idle',
-      isShortlistLocked: false,
-      shortlistedIds: [],
-      rejectedIds: [],
-      feedbackMap: {}
-    }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-    try {
-      // 2. Re-extract Fingerprint with new prompt
-      const fingerprint = await extractTechnicalFingerprint(newPrompt, [], session.urls);
-      
-      await setDoc(sessionRef, {
-        title: (fingerprint.title && fingerprint.title.trim()) ? fingerprint.title.trim() : session.title,
-        plan: fingerprint.plan,
-        sources: fingerprint.sources,
-        fingerprint
-      }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-      // 3. Search Candidates
-      const results = await searchCandidates(fingerprint);
-      const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
-
-      const candidates: Candidate[] = candidatesArray.map((r: any, i: number) => {
-        const rawUrl = r.url || '';
-        const url = cleanUrl(rawUrl);
-        let platform = (r.platform || 'other').toLowerCase() as any;
-        if (url) {
-          if (url.includes('linkedin.com')) platform = 'linkedin';
-          else if (url.includes('github.com')) platform = 'github';
-          else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'x';
-          else if (url.includes('huggingface.co')) platform = 'huggingface';
-          else if (url.includes('arxiv.org')) platform = 'arxiv';
-        }
-        return {
-          id: `${sessionId}-${i}-${Date.now()}`,
-          ...r,
-          url,
-          platform,
-          socialLinks: url ? [{ platform, url }] : []
-        };
-      });
-
-      candidates.sort((a, b) => b.score - a.score);
-
-      await setDoc(sessionRef, { candidates, status: 'completed' }, { merge: true })
-        .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-      // 4. Enrich each candidate
-      for (const candidate of candidates) {
-        try {
-          const enrichment = await enrichCandidateProfile(candidate);
-          setSessions(prev => {
-            const currentSession = prev.find(s => s.id === sessionId);
-            if (!currentSession) return prev;
-            
-            const updatedCandidates = currentSession.candidates.map(c => 
-              c.id === candidate.id ? {
-                ...c,
-                socialLinks: [
-                  ...(enrichment.socialLinks || []).map(l => ({ ...l, url: cleanUrl(l.url) })),
-                  ...(c.socialLinks || [])
-                ].filter((link, index, self) => 
-                  index === self.findIndex((t) => 
-                    t.url === link.url || 
-                    t.platform.toLowerCase() === link.platform.toLowerCase()
-                  )
-                ),
-                recentActivity: (enrichment.recentActivity || []).map(a => ({ ...a, url: a.url ? cleanUrl(a.url) : undefined }))
-              } : c
-            );
-
-            setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
-              .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-            return prev;
-          });
-        } catch (enrichError) {
-          console.error(`Enrichment failed for ${candidate.name}:`, enrichError);
-        }
-      }
-    } catch (error) {
-      console.error('Update search failed:', error);
-      await setDoc(sessionRef, { status: 'error' }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-    }
+    await setDoc(sessionRef, { prompt: newPrompt }, { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
   };
 
   const handleUpdateFeedback = async (sessionId: string, candidateId: string, feedback: string) => {
@@ -637,51 +442,8 @@ export default function App() {
       };
     }
 
-    // Optimistically update
     await setDoc(sessionRef, cleanObject(updateData), { merge: true })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-
-    // Only trigger re-search if it's a NEW rejection
-    if (!isAlreadyRejected) {
-      try {
-        // Use existing fingerprint to save time/tokens
-        const fingerprint = session.fingerprint || await extractTechnicalFingerprint(session.prompt, [], session.urls);
-        
-        const results = await searchCandidates({ 
-          ...fingerprint, 
-          rejectedIds: newRejected,
-          feedbackMap: updateData.feedbackMap || session.feedbackMap 
-        });
-        const candidatesArray = Array.isArray(results) ? results : (results.candidates || []);
-        
-        // Find a candidate not already in the list and not in rejectedIds
-        const newCandidateData = candidatesArray.find((c: any) => 
-          !session.candidates.some(existing => existing.name === c.name) &&
-          !newRejected.includes(c.id)
-        );
-        
-        if (newCandidateData) {
-          const newCandidate: Candidate = {
-            id: `${sessionId}-${Date.now()}`,
-            ...newCandidateData
-          };
-          
-          const updatedCandidates = [...session.candidates, newCandidate];
-          await setDoc(sessionRef, { candidates: updatedCandidates }, { merge: true })
-            .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-            
-          // Enrich the new candidate
-          const enrichment = await enrichCandidateProfile(newCandidate);
-          const finalCandidates = updatedCandidates.map(c => 
-            c.id === newCandidate.id ? { ...c, ...enrichment } : c
-          );
-          await setDoc(sessionRef, { candidates: finalCandidates }, { merge: true })
-            .catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
-        }
-      } catch (error) {
-        console.error('Failed to source replacement candidate:', error);
-      }
-    }
   };
 
   const handleLockShortlist = async (sessionId: string) => {
@@ -1117,10 +879,9 @@ export default function App() {
               contacts={contacts}
             />
             {viewMode === 'classic' && activeTab === 'results' && (
-              <SearchInput 
-                onSearch={handleSearch} 
-                onRestart={activeSession ? handleRestartSearch : undefined}
-                isLoading={activeSession?.status === 'searching'} 
+              <SearchInput
+                onSearch={handleSearch}
+                isLoading={activeSession?.status === 'searching'}
               />
             )}
           </>

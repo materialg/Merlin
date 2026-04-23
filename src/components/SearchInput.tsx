@@ -1,13 +1,12 @@
-import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, RotateCcw } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 interface SearchInputProps {
   onSearch: (prompt: string, attachments: File[], urls: string[]) => void;
-  onRestart?: () => void;
   isLoading: boolean;
 }
 
-export default function SearchInput({ onSearch, onRestart, isLoading }: SearchInputProps) {
+export default function SearchInput({ onSearch, isLoading }: SearchInputProps) {
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -205,20 +204,9 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
               </div>
 
               <div className="flex items-center gap-2">
-                {onRestart && (
-                  <button
-                    type="button"
-                    onClick={onRestart}
-                    disabled={isLoading}
-                    className="flex items-center justify-center w-10 h-10 bg-white border border-gray-200 rounded-full text-gray-400 hover:text-blue-600 hover:border-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                    title="Resource"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                  </button>
-                )}
                 <button
                   type="submit"
-                  disabled={isLoading || (!input.trim() && files.length === 0 && urls.length === 0)}
+                  disabled={isLoading || files.length === 0}
                   className="flex items-center justify-center w-10 h-10 bg-[#5850EC] text-white rounded-full hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-100"
                 >
                   {isLoading ? (
@@ -243,7 +231,7 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
 
         <div className="mt-4 text-center">
           <p className="text-[12px] font-medium text-gray-400 tracking-tight">
-            Enter to search · Shift+Enter for new line · Attach multiple files or URLs
+            Attach a JD (PDF) to start · Shift+Enter for new line
           </p>
         </div>
       </div>
