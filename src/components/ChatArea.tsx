@@ -24,6 +24,7 @@ interface ChatAreaProps {
   onActiveTabChange: (tab: 'results' | 'shortlist' | 'sourced') => void;
   isSidebarCollapsed?: boolean;
   onAddContact?: (candidate: Candidate) => void;
+  onRemoveContact?: (contactId: string) => void;
   contacts?: Contact[];
 }
 
@@ -47,6 +48,7 @@ export default function ChatArea({
   onActiveTabChange,
   isSidebarCollapsed,
   onAddContact,
+  onRemoveContact,
   contacts = []
 }: ChatAreaProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -519,20 +521,22 @@ export default function ChatArea({
                                 <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
                               </button>
                               
-                              {onAddContact && (
-                                <button 
-                                  onClick={() => onAddContact(candidate)}
-                                  disabled={contacts.some(c => c.id === candidate.id)}
-                                  className={`p-2 rounded-lg transition-all border ${
-                                    contacts.some(c => c.id === candidate.id)
-                                      ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-100 cursor-default' 
-                                      : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:bg-green-50 hover:border-green-100'
-                                  }`}
-                                  title={contacts.some(c => c.id === candidate.id) ? "Added to contacts" : "Add to contacts"}
-                                >
-                                  <Users className={`w-4 h-4 ${contacts.some(c => c.id === candidate.id) ? 'fill-current' : ''}`} />
-                                </button>
-                              )}
+                              {onAddContact && (() => {
+                                const saved = contacts.some(c => c.id === candidate.id);
+                                return (
+                                  <button
+                                    onClick={() => saved ? onRemoveContact?.(candidate.id) : onAddContact(candidate)}
+                                    className={`p-2 rounded-lg transition-all border ${
+                                      saved
+                                        ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-100 hover:bg-red-600 hover:border-red-600 hover:shadow-red-100'
+                                        : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:bg-green-50 hover:border-green-100'
+                                    }`}
+                                    title={saved ? "Remove from contacts" : "Save to contacts"}
+                                  >
+                                    <Users className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} />
+                                  </button>
+                                );
+                              })()}
                               
                               {activeTab === 'results' && (
                                 <button 
@@ -1041,20 +1045,22 @@ export default function ChatArea({
                             )}
                             <td className="py-4 px-4 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                {onAddContact && (
-                                  <button
-                                    onClick={() => onAddContact(candidate)}
-                                    disabled={contacts.some(c => c.id === candidate.id)}
-                                    className={`p-2 rounded-lg transition-all ${
-                                      contacts.some(c => c.id === candidate.id)
-                                        ? 'text-green-600 bg-green-50 cursor-default'
-                                        : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
-                                    }`}
-                                    title={contacts.some(c => c.id === candidate.id) ? "Saved to contacts" : "Save to contacts"}
-                                  >
-                                    <Users className={`w-4 h-4 ${contacts.some(c => c.id === candidate.id) ? 'fill-current' : ''}`} />
-                                  </button>
-                                )}
+                                {onAddContact && (() => {
+                                  const saved = contacts.some(c => c.id === candidate.id);
+                                  return (
+                                    <button
+                                      onClick={() => saved ? onRemoveContact?.(candidate.id) : onAddContact(candidate)}
+                                      className={`p-2 rounded-lg transition-all ${
+                                        saved
+                                          ? 'text-green-600 bg-green-50 hover:text-red-600 hover:bg-red-50'
+                                          : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                                      }`}
+                                      title={saved ? "Remove from contacts" : "Save to contacts"}
+                                    >
+                                      <Users className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} />
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td className="py-4 px-4 text-right">

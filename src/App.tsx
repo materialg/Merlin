@@ -1113,6 +1113,7 @@ export default function App() {
               onActiveTabChange={setActiveTab}
               isSidebarCollapsed={isSidebarCollapsed}
               onAddContact={handleAddContact}
+              onRemoveContact={handleDeleteContact}
               contacts={contacts}
             />
             {viewMode === 'classic' && activeTab === 'results' && (
