@@ -68,7 +68,6 @@ export interface SearchSession {
   status: 'idle' | 'searching' | 'completed' | 'error';
   attachments: { name: string; type: string; url?: string }[];
   urls: string[];
-  companyLink?: string;
   shortlistedIds?: string[];
   rejectedIds?: string[];
   sourcedCandidates?: Candidate[];

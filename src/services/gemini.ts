@@ -20,7 +20,7 @@ async function callGeminiWithRetry(fn: () => Promise<any>, retries = 3, delay = 
   }
 }
 
-export async function extractTechnicalFingerprint(prompt: string, attachments: { name: string; data: string; mimeType: string }[], urls: string[], companyLink?: string) {
+export async function extractTechnicalFingerprint(prompt: string, attachments: { name: string; data: string; mimeType: string }[], urls: string[]) {
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing. Please check your environment variables.");
   
   const systemInstruction = `
@@ -31,22 +31,20 @@ export async function extractTechnicalFingerprint(prompt: string, attachments: {
     1. A text prompt.
     2. PDF attachments (Job Descriptions).
     3. URLs (Job Postings).
-    4. A Company Reference Link (LinkedIn or Engineering Blog).
-    
+
     A Technical Fingerprint includes:
     1. Title: The specific job title or position name being searched for.
     2. Primary Tech: Core technologies, frameworks, and tools.
     3. Secondary Signals: Specific experience markers (e.g., "bare metal", "distributed systems").
     4. Target Profile: A description of the ideal candidate's background across platforms like GitHub, ArXiv, and HuggingFace.
     5. Search Plan: A strategy for finding these candidates.
-    6. Company Context: If a company link is provided, analyze the company's technical DNA, engineering culture, and preferred tech stack to refine the search.
-    7. Location Constraint: Explicitly state "United States and Canada" as the required location.
+    6. Location Constraint: Explicitly state "United States and Canada" as the required location.
     
     Return the result in JSON format.
   `;
 
   const contents: any[] = [
-    { text: `Prompt: ${prompt}${urls.length > 0 ? `\nURLs to analyze: ${urls.join(', ')}` : ''}${companyLink ? `\nCompany Reference Link: ${companyLink}` : ''}` }
+    { text: `Prompt: ${prompt}${urls.length > 0 ? `\nURLs to analyze: ${urls.join(', ')}` : ''}` }
   ];
 
   // Add PDF contents

@@ -1,8 +1,8 @@
-import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, Building2, RotateCcw } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, ArrowRight, X, PlusCircle, FileText, RotateCcw } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 interface SearchInputProps {
-  onSearch: (prompt: string, attachments: File[], urls: string[], companyLink?: string) => void;
+  onSearch: (prompt: string, attachments: File[], urls: string[]) => void;
   onRestart?: () => void;
   isLoading: boolean;
 }
@@ -11,12 +11,9 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
   const [input, setInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
-  const [companyLink, setCompanyLink] = useState<string | null>(null);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
-  const [showCompanyInput, setShowCompanyInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
-  const [companyInput, setCompanyInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -35,24 +32,13 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((input.trim() || files.length > 0 || urls.length > 0 || companyLink) && !isLoading) {
-      onSearch(input, files, urls, companyLink || undefined);
+    if ((input.trim() || files.length > 0 || urls.length > 0) && !isLoading) {
+      onSearch(input, files, urls);
       setInput('');
       setFiles([]);
       setUrls([]);
-      setCompanyLink(null);
       setShowPlusMenu(false);
       setShowUrlInput(false);
-      setShowCompanyInput(false);
-    }
-  };
-
-  const handleAddCompany = () => {
-    if (companyInput.trim()) {
-      setCompanyLink(companyInput.trim());
-      setCompanyInput('');
-      setShowCompanyInput(false);
-      setShowPlusMenu(false);
     }
   };
 
@@ -95,17 +81,8 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
         <form onSubmit={handleSubmit} className="relative">
           <div className="bg-[#FBFBF9] border border-gray-200 rounded-[28px] p-6 shadow-sm transition-all focus-within:border-gray-300 focus-within:shadow-md">
             {/* Attachment chips */}
-            {(files.length > 0 || urls.length > 0 || companyLink) && (
+            {(files.length > 0 || urls.length > 0) && (
               <div className="flex flex-wrap gap-2 mb-4">
-                {companyLink && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 shadow-sm">
-                    <Building2 className="w-3 h-3 text-gray-400" />
-                    <span className="truncate max-w-[150px]">Company: {companyLink.replace(/^https?:\/\//, '').split('/')[0]}</span>
-                    <button type="button" onClick={() => setCompanyLink(null)} className="hover:text-red-500">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
                 {files.map((file, i) => (
                   <div key={`file-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-600 shadow-sm">
                     <Paperclip className="w-3 h-3 text-gray-400" />
@@ -173,17 +150,6 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
                         <LinkIcon className="w-4 h-4 text-gray-400" />
                         Add URL
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCompanyInput(true);
-                          setShowPlusMenu(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <Building2 className="w-4 h-4 text-gray-400" />
-                        Company
-                      </button>
                     </div>
                   )}
                 </div>
@@ -225,52 +191,6 @@ export default function SearchInput({ onSearch, onRestart, isLoading }: SearchIn
                           className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
                         >
                           Add URL
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {showCompanyInput && (
-                  <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in duration-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Add Company</h4>
-                        <button onClick={() => setShowCompanyInput(false)} className="text-gray-400 hover:text-gray-600">
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Paste a LinkedIn Company URL or Engineering Blog to calibrate Merlin's technical fingerprint.
-                      </p>
-                      <input
-                        autoFocus
-                        type="url"
-                        value={companyInput}
-                        onChange={(e) => setCompanyInput(e.target.value)}
-                        placeholder="https://linkedin.com/company/..."
-                        className="w-full text-sm p-4 border border-gray-100 bg-gray-50 rounded-xl mb-4 focus:border-blue-400 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddCompany();
-                          }
-                        }}
-                      />
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowCompanyInput(false)}
-                          className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition-all"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddCompany}
-                          className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all"
-                        >
-                          Set Reference
                         </button>
                       </div>
                     </div>

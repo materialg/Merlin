@@ -148,7 +148,7 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleSearch = async (prompt: string, files: File[], urls: string[], companyLink?: string) => {
+  const handleSearch = async (prompt: string, files: File[], urls: string[]) => {
     if (!user) {
       await loginWithGoogle();
       return;
@@ -165,8 +165,7 @@ export default function App() {
       candidates: [],
       status: 'searching',
       attachments: files.map(f => ({ name: f.name, type: f.type })),
-      urls,
-      ...(companyLink ? { companyLink } : {})
+      urls
     };
 
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
@@ -187,7 +186,7 @@ export default function App() {
       }));
 
       // 2. Extract Fingerprint
-      const fingerprint = await extractTechnicalFingerprint(prompt, fileContents, urls, companyLink);
+      const fingerprint = await extractTechnicalFingerprint(prompt, fileContents, urls);
       
       await setDoc(sessionRef, {
         title: (fingerprint.title && fingerprint.title.trim()) ? fingerprint.title.trim() : newSession.title,
@@ -294,7 +293,7 @@ export default function App() {
       let fingerprint = activeSession.fingerprint;
       
       if (!fingerprint) {
-        fingerprint = await extractTechnicalFingerprint(activeSession.prompt, [], activeSession.urls, activeSession.companyLink);
+        fingerprint = await extractTechnicalFingerprint(activeSession.prompt, [], activeSession.urls);
       }
 
       const results = await searchCandidates(fingerprint);
@@ -486,7 +485,7 @@ export default function App() {
 
     try {
       // 2. Re-extract Fingerprint with new prompt
-      const fingerprint = await extractTechnicalFingerprint(newPrompt, [], session.urls, session.companyLink);
+      const fingerprint = await extractTechnicalFingerprint(newPrompt, [], session.urls);
       
       await setDoc(sessionRef, {
         title: (fingerprint.title && fingerprint.title.trim()) ? fingerprint.title.trim() : session.title,
