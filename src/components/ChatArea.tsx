@@ -158,9 +158,10 @@ export default function ChatArea({
     if (isShortlisted) {
       onToggleShortlist(candidate.id);
     } else {
-      // Add to shortlist immediately
       onToggleShortlist(candidate.id);
-      // Then ask for optional feedback
+      if (onAddContact && !contacts.some(c => c.id === candidate.id)) {
+        onAddContact(candidate);
+      }
       setFeedbackModal({ isOpen: true, candidate, type: 'shortlist' });
     }
   };
@@ -802,6 +803,7 @@ export default function ChatArea({
                         {activeTab === 'shortlist' && (
                           <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Notes</th>
                         )}
+                        <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Save</th>
                         <th className="py-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
                       </tr>
                     </thead>
@@ -1049,35 +1051,38 @@ export default function ChatArea({
                             )}
                             <td className="py-4 px-4 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button 
-                                  onClick={() => handleShortlistClick(candidate)}
-                                  className={`p-2 rounded-lg transition-all ${
-                                    isShortlisted 
-                                      ? 'text-blue-600 bg-blue-50' 
-                                      : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
-                                  }`}
-                                  title={isShortlisted ? "Remove from shortlist" : "Add to shortlist"}
-                                >
-                                  <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
-                                </button>
-
                                 {onAddContact && (
-                                  <button 
+                                  <button
                                     onClick={() => onAddContact(candidate)}
                                     disabled={contacts.some(c => c.id === candidate.id)}
                                     className={`p-2 rounded-lg transition-all ${
                                       contacts.some(c => c.id === candidate.id)
-                                        ? 'text-green-600 bg-green-50 cursor-default' 
+                                        ? 'text-green-600 bg-green-50 cursor-default'
                                         : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
                                     }`}
-                                    title={contacts.some(c => c.id === candidate.id) ? "Added to contacts" : "Add to contacts"}
+                                    title={contacts.some(c => c.id === candidate.id) ? "Saved to contacts" : "Save to contacts"}
                                   >
                                     <Users className={`w-4 h-4 ${contacts.some(c => c.id === candidate.id) ? 'fill-current' : ''}`} />
                                   </button>
                                 )}
-                                
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => handleShortlistClick(candidate)}
+                                  className={`p-2 rounded-lg transition-all ${
+                                    isShortlisted
+                                      ? 'text-blue-600 bg-blue-50'
+                                      : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                  }`}
+                                  title={isShortlisted ? "Remove from shortlist" : "Shortlist (also saves to contacts)"}
+                                >
+                                  <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
+                                </button>
+
                                 {activeTab === 'results' && (
-                                  <button 
+                                  <button
                                     onClick={() => handleRejectClick(candidate)}
                                     className="p-2 rounded-lg transition-all text-gray-400 hover:text-red-600 hover:bg-red-50"
                                     title="Reject candidate"
