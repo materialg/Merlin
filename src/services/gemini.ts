@@ -63,6 +63,9 @@ export async function extractTechnicalFingerprint(prompt: string, attachments: {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ parts: contents }],
+      tools: [
+        { googleSearch: {} }
+      ] as any,
       config: {
         systemInstruction,
         responseMimeType: "application/json",
