@@ -508,28 +508,16 @@ export default function ChatArea({
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => handleShortlistClick(candidate)}
-                                className={`p-2 rounded-lg transition-all border ${
-                                  isShortlisted 
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100' 
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                                title={isShortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
-                              >
-                                <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
-                              </button>
-                              
+                            <div className="flex items-center gap-1">
                               {onAddContact && (() => {
                                 const saved = contacts.some(c => c.id === candidate.id);
                                 return (
                                   <button
                                     onClick={() => saved ? onRemoveContact?.(candidate.id) : onAddContact(candidate)}
-                                    className={`p-2 rounded-lg transition-all border ${
+                                    className={`p-2 rounded-lg transition-all ${
                                       saved
-                                        ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-100 hover:bg-red-600 hover:border-red-600 hover:shadow-red-100'
-                                        : 'bg-white border-gray-200 text-gray-400 hover:text-green-600 hover:bg-green-50 hover:border-green-100'
+                                        ? 'text-green-600 bg-green-50 hover:text-red-600 hover:bg-red-50'
+                                        : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
                                     }`}
                                     title={saved ? "Remove from contacts" : "Save to contacts"}
                                   >
@@ -537,11 +525,23 @@ export default function ChatArea({
                                   </button>
                                 );
                               })()}
-                              
+
+                              <button
+                                onClick={() => handleShortlistClick(candidate)}
+                                className={`p-2 rounded-lg transition-all ${
+                                  isShortlisted
+                                    ? 'text-blue-600 bg-blue-50'
+                                    : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                }`}
+                                title={isShortlisted ? 'Remove from shortlist' : 'Shortlist (also saves to contacts)'}
+                              >
+                                <Bookmark className={`w-4 h-4 ${isShortlisted ? 'fill-current' : ''}`} />
+                              </button>
+
                               {activeTab === 'results' && (
-                                <button 
+                                <button
                                   onClick={() => handleRejectClick(candidate)}
-                                  className="p-2 rounded-lg transition-all border bg-white border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100"
+                                  className="p-2 rounded-lg transition-all text-gray-400 hover:text-red-600 hover:bg-red-50"
                                   title="Reject candidate"
                                 >
                                   <X className="w-4 h-4" />
