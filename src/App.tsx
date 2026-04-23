@@ -166,7 +166,7 @@ export default function App() {
       status: 'searching',
       attachments: files.map(f => ({ name: f.name, type: f.type })),
       urls,
-      companyLink
+      ...(companyLink ? { companyLink } : {})
     };
 
     const sessionRef = doc(db, 'users', user.uid, 'sessions', sessionId);
