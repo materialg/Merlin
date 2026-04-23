@@ -63,11 +63,9 @@ export default function ChatArea({
   const [feedbackModal, setFeedbackModal] = useState<{
     isOpen: boolean;
     candidate: Candidate | null;
-    type: 'shortlist' | 'reject';
   }>({
     isOpen: false,
-    candidate: null,
-    type: 'shortlist'
+    candidate: null
   });
   const [socialModal, setSocialModal] = useState<{
     isOpen: boolean;
@@ -162,7 +160,6 @@ export default function ChatArea({
       if (onAddContact && !contacts.some(c => c.id === candidate.id)) {
         onAddContact(candidate);
       }
-      setFeedbackModal({ isOpen: true, candidate, type: 'shortlist' });
     }
   };
 
@@ -170,18 +167,12 @@ export default function ChatArea({
     // Reject immediately
     onRejectCandidate(candidate.id);
     // Then ask for optional feedback
-    setFeedbackModal({ isOpen: true, candidate, type: 'reject' });
+    setFeedbackModal({ isOpen: true, candidate });
   };
 
   const handleFeedbackSubmit = (feedback: string) => {
     if (!feedbackModal.candidate) return;
-    
-    if (feedbackModal.type === 'shortlist') {
-      onToggleShortlist(feedbackModal.candidate.id, feedback);
-    } else {
-      onRejectCandidate(feedbackModal.candidate.id, feedback);
-    }
-    
+    onRejectCandidate(feedbackModal.candidate.id, feedback);
     setFeedbackModal({ ...feedbackModal, isOpen: false });
   };
 
@@ -243,7 +234,6 @@ export default function ChatArea({
         onSubmit={handleFeedbackSubmit}
         onSkip={handleFeedbackSkip}
         candidateName={feedbackModal.candidate?.name || ''}
-        type={feedbackModal.type}
       />
 
       <SocialLinksModal

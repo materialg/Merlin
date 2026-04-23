@@ -8,10 +8,9 @@ interface FeedbackModalProps {
   onSubmit: (feedback: string) => void;
   onSkip: () => void;
   candidateName: string;
-  type: 'shortlist' | 'reject';
 }
 
-export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candidateName, type }: FeedbackModalProps) {
+export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candidateName }: FeedbackModalProps) {
   const [feedback, setFeedback] = useState('');
 
   // Clear feedback when modal opens
@@ -35,7 +34,7 @@ export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candi
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">
-                {type === 'shortlist' ? 'Why is this a good match?' : 'Why is this not a match?'}
+                Why is this not a match?
               </h3>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-5 h-5" />
@@ -50,7 +49,7 @@ export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candi
               autoFocus
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder={type === 'shortlist' ? "e.g., Great specific experience with Rust..." : "e.g., Too junior for this specific role..."}
+              placeholder="e.g., Too junior for this specific role..."
               className="w-full h-32 p-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none transition-all"
             />
 
