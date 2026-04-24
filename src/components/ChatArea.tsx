@@ -469,6 +469,14 @@ export default function ChatArea({
                       <pre className="text-[11px] text-gray-700 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white border border-gray-100 rounded p-3">
 {JSON.stringify(session.querySpec, null, 2)}
                       </pre>
+                      {session.esQuery && (
+                        <details className="text-[10px]">
+                          <summary className="font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600">PDL ES query</summary>
+                          <pre className="mt-2 text-[11px] text-gray-700 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white border border-gray-100 rounded p-3">
+{JSON.stringify(session.esQuery, null, 2)}
+                          </pre>
+                        </details>
+                      )}
                     </div>
                   </motion.div>
                 )}
