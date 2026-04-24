@@ -457,12 +457,19 @@ export default function ChatArea({
                   <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-5"
+                    className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
                   >
-                    <div className="space-y-4">
-                      <div>
-                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Query spec</span>
-                      </div>
+                    <details className="group">
+                      <summary className="list-none cursor-pointer flex items-center justify-between gap-3 p-4 select-none">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Query plan</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {Array.isArray(session.querySpec.keyword_clusters) ? session.querySpec.keyword_clusters.length : 0} clusters · {Array.isArray(session.querySpec.location_terms) ? session.querySpec.location_terms.length : 0} locations · {Array.isArray(session.querySpec.disqualifier_terms) ? session.querySpec.disqualifier_terms.length : 0} disqualifiers · {Array.isArray(session.esQuery?.queries) ? session.esQuery.queries.length : 0} queries
+                          </span>
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180 shrink-0" />
+                      </summary>
+                      <div className="space-y-4 px-5 pb-5">
 
                       {Array.isArray(session.querySpec.keyword_clusters) && session.querySpec.keyword_clusters.length > 0 && (
                         <div className="space-y-2">
@@ -566,7 +573,8 @@ export default function ChatArea({
                           </div>
                         </details>
                       )}
-                    </div>
+                      </div>
+                    </details>
                   </motion.div>
                 )}
               </div>
