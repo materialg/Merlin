@@ -1,4 +1,4 @@
-import coords from '../data/zip_coords.json';
+import coords from '../data/zip_coords.json' with { type: 'json' };
 
 type Coord = { lat: number; lng: number };
 

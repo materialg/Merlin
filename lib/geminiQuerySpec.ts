@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { QuerySpec } from './types.js';
-import roles from '../data/pdl/roles.json';
-import subRoles from '../data/pdl/sub_roles.json';
-import levels from '../data/pdl/levels.json';
+import roles from '../data/pdl/roles.json' with { type: 'json' };
+import subRoles from '../data/pdl/sub_roles.json' with { type: 'json' };
+import levels from '../data/pdl/levels.json' with { type: 'json' };
 
 const ROLES = roles as string[];
 const SUB_ROLES = subRoles as string[];
