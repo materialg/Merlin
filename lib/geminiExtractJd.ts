@@ -50,7 +50,11 @@ HARD RULES:
 4. DO NOT EXPAND CATEGORY WORDS. The JD saying "security", "networking", "DevOps", "cloud", "infrastructure", "observability", etc. is NOT permission to emit clusters of specific vendors in that category. Only emit a cluster when the JD names at least ONE specific tool, product, or concrete skill in that category. If the JD just says "security" with no named tool, emit zero security-related clusters.
 5. keyword_clusters: for each SPECIFIC skill or tool named in the JD, emit a cluster of 2–6 functionally interchangeable substitutes a recruiter would accept. Use your knowledge of the landscape (MDM vendors, EDR tools, identity providers, etc.) but only to expand a named tool, never to expand a category word. Include the canonical name plus common shorthands ("macOS" + "Mac", "Kubernetes" + "k8s"). Do not include the parent category as a term ("MDM", "EDR", "SSO") — it matches too broadly.
 6. TARGET 1–5 CLUSTERS. If the JD is thin or vague, emit fewer (even 1 or 0 is acceptable). Never pad to reach a minimum. Ten clusters of 6 terms AND'd together return zero candidates.
-7. location_terms: city and metro phrasings only. Include the full city name, common abbreviations, and the metro-area phrasing. Do NOT enumerate neighborhoods or sub-cities unless the JD names them. Example for "Los Angeles": ["Los Angeles", "LA", "Greater Los Angeles"] — NOT Santa Monica, Beverly Hills, Culver City. Empty array if the JD names no location.
+7. location_terms: the cities and neighborhoods a candidate who works at this job would plausibly list on a LinkedIn/GitHub/X profile.
+   a. If the JD just names a BROAD city (e.g. "Los Angeles", "New York", no address): emit the city, its common abbreviations, and metro-area phrasings. Example LA → ["Los Angeles", "LA", "Greater Los Angeles"]. Do NOT enumerate neighborhoods at this granularity.
+   b. If the JD provides a SPECIFIC address, building, ZIP code, or neighborhood (e.g. "2000 Ave of the Stars", "90067", "Midtown Manhattan", "Soho"): use your geographic knowledge to ALSO enumerate the major cities and neighborhoods within APPROXIMATELY 10 MILES of that anchor. This is our radius filter — Google dorks can't do distance, so we approximate by listing nearby places. Example "90067" (Century City, LA) → ["Los Angeles", "LA", "Greater Los Angeles", "Century City", "Beverly Hills", "Santa Monica", "Culver City", "Westwood", "West Hollywood", "West LA", "Brentwood"]. Do NOT extend the radius much beyond 10 miles (no Long Beach, Pasadena, Glendale, or Burbank for a 90067 anchor).
+   c. If the user's prompt explicitly states a different radius ("within 20 miles of 90210", "walking distance to X"), honor it.
+   d. Empty array if the JD names no location at all.
 8. location_region_terms: state/province and country phrasings for the same location. This is AND'd against location_terms in the dork so we filter out profiles that mention the city incidentally without being based in the state/country. For a US city emit ["<State Full Name>", "United States"] — e.g. ["California", "United States"] for LA. For a non-US city emit the country and relevant region — e.g. ["England", "United Kingdom"] for London. DO NOT include 2-letter state codes (CA, NY, TX) — "CA" also matches "Canada" and "NY" matches many acronyms. Empty array if location_terms is empty OR if the JD doesn't specify the country.
 9. If the JD does not specify something, leave the field empty. Do not fill gaps with assumptions or the hiring company's inferred peer set.
 
@@ -96,6 +100,28 @@ JD: "Backend engineer with Postgres and Go. London."
   ],
   "location_terms": ["London", "Greater London"],
   "location_region_terms": ["England", "United Kingdom"]
+}
+
+JD: "Systems engineer, macOS environments. Annenberg Foundation at 2000 Ave of the Stars 90067. Tough time finding someone locally."
+// Specific address/ZIP → enumerate cities & neighborhoods within ~10 miles of 90067 (Century City).
+{
+  "keyword_clusters": [
+    ["macOS", "Mac"]
+  ],
+  "location_terms": [
+    "Los Angeles",
+    "LA",
+    "Greater Los Angeles",
+    "Century City",
+    "Beverly Hills",
+    "Santa Monica",
+    "Culver City",
+    "Westwood",
+    "West Hollywood",
+    "West LA",
+    "Brentwood"
+  ],
+  "location_region_terms": ["California", "United States"]
 }
 
 Return only the JSON object. No prose.`;
