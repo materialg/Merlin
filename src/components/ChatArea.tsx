@@ -468,16 +468,19 @@ export default function ChatArea({
                         <div className="space-y-2">
                           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Keyword clusters</span>
                           <div className="space-y-1.5">
-                            {session.querySpec.keyword_clusters.map((cluster: string[], i: number) => (
-                              <div key={i} className="flex flex-wrap gap-1.5 items-center">
-                                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">#{i + 1}</span>
-                                {cluster.map((term, j) => (
-                                  <span key={j} className="text-[11px] font-mono bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded px-2 py-0.5">
-                                    {term}
-                                  </span>
-                                ))}
-                              </div>
-                            ))}
+                            {session.querySpec.keyword_clusters.map((cluster: { terms: string[] } | string[], i: number) => {
+                              const terms = Array.isArray(cluster) ? cluster : (cluster?.terms || []);
+                              return (
+                                <div key={i} className="flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">#{i + 1}</span>
+                                  {terms.map((term, j) => (
+                                    <span key={j} className="text-[11px] font-mono bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded px-2 py-0.5">
+                                      {term}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

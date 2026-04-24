@@ -178,9 +178,17 @@ export default async function handler(req: any, res: any) {
         sites: d.mergedFrom.map(m => `${m.platform}@${m.rank}`),
       }));
 
+    // Firestore does not allow nested arrays (string[][]). Wrap each cluster
+    // in an object so it is persisted as array-of-objects-containing-arrays,
+    // which is allowed. The UI reads this wrapped shape directly.
+    const wireJd = {
+      ...extractedJd,
+      keyword_clusters: extractedJd.keyword_clusters.map(terms => ({ terms })),
+    };
+
     const debugInfo = {
       pipeline: 'cse',
-      extractedJd,
+      extractedJd: wireJd,
       queries,
       queryDebug,
       totalRawItems,
@@ -192,7 +200,7 @@ export default async function handler(req: any, res: any) {
     };
 
     return res.status(200).json({
-      querySpec: extractedJd,
+      querySpec: wireJd,
       esQuery: { pipeline: 'cse', queries },
       candidates: scored,
       debug: debugInfo,
