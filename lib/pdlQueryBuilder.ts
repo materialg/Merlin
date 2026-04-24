@@ -1,4 +1,7 @@
 import type { QuerySpec } from './types';
+import { getCoordsFromZip } from './zipLookup';
+
+const DEFAULT_RADIUS_MILES = 25;
 
 export function buildPdlQuery(spec: QuerySpec): object {
   const must: any[] = [];
@@ -26,7 +29,18 @@ export function buildPdlQuery(spec: QuerySpec): object {
   must.push({ exists: { field: 'linkedin_url' } });
 
   if (spec.location?.postal_code) {
-    filter.push({ term: { location_postal_code: spec.location.postal_code } });
+    const coords = getCoordsFromZip(spec.location.postal_code);
+    if (coords) {
+      const radius = spec.location.radius_miles ?? DEFAULT_RADIUS_MILES;
+      filter.push({
+        geo_distance: {
+          distance: `${radius}mi`,
+          location_geo: `${coords.lat},${coords.lng}`,
+        },
+      });
+    } else {
+      filter.push({ term: { location_postal_code: spec.location.postal_code } });
+    }
   } else if (spec.location?.region) {
     filter.push({ term: { location_region: spec.location.region.toLowerCase() } });
   }
