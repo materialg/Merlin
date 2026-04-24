@@ -1,7 +1,7 @@
 import type { ExtractedJD, IssuedQuery, SitePlatform } from './types.js';
 
 // One query per site. Shape:
-//   site:DOMAIN (clusterA_OR_terms) (clusterB_OR_terms) ... (location_OR_terms) -disq1 -disq2
+//   site:DOMAIN (clusterA_OR_terms) (clusterB_OR_terms) ... (location_OR_terms)
 // Parenthesized groups are implicitly AND-ed; we never emit the literal word
 // "AND" (Google treats spaces as AND and can be confused by explicit AND in
 // some query templates).
@@ -29,27 +29,12 @@ function orGroup(terms: string[]): string {
   return `(${cleaned.join(' OR ')})`;
 }
 
-function negativeTerms(terms: string[]): string {
-  return terms
-    .map(t => t.trim())
-    .filter(Boolean)
-    .map(t => {
-      // Google's minus operator only applies to a single token or a quoted
-      // phrase. Quote multi-word disqualifiers so -"Vice President" works.
-      const needsQuote = /\s/.test(t);
-      const body = needsQuote ? `"${t.replace(/"/g, '')}"` : t;
-      return `-${body}`;
-    })
-    .join(' ');
-}
-
 export function buildXrayQueries(jd: ExtractedJD): IssuedQuery[] {
   const clusterGroups = (jd.keyword_clusters || [])
     .map(cluster => orGroup(cluster))
     .filter(Boolean);
 
   const locationGroup = orGroup(jd.location_terms || []);
-  const disqPart = negativeTerms(jd.disqualifier_terms || []);
 
   const queries: IssuedQuery[] = [];
   for (const { platform, domain } of SITES) {
@@ -57,7 +42,6 @@ export function buildXrayQueries(jd: ExtractedJD): IssuedQuery[] {
       `site:${domain}`,
       ...clusterGroups,
       locationGroup,
-      disqPart,
     ].filter(Boolean);
 
     const q = parts.join(' ').replace(/\s+/g, ' ').trim();

@@ -45,7 +45,6 @@ export default async function handler(req: any, res: any) {
     console.log('[api/search] extracted:', {
       clusters: extractedJd.keyword_clusters.length,
       locations: extractedJd.location_terms.length,
-      disqualifiers: extractedJd.disqualifier_terms.length,
     });
 
     const queries: IssuedQuery[] = buildXrayQueries(extractedJd);

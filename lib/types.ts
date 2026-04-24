@@ -5,7 +5,6 @@ export type SitePlatform = 'linkedin' | 'github' | 'x';
 export type ExtractedJD = {
   keyword_clusters: string[][];
   location_terms: string[];
-  disqualifier_terms: string[];
 };
 
 export type CseResult = {

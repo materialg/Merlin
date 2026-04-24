@@ -464,7 +464,7 @@ export default function ChatArea({
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Query plan</span>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {Array.isArray(session.querySpec.keyword_clusters) ? session.querySpec.keyword_clusters.length : 0} clusters · {Array.isArray(session.querySpec.location_terms) ? session.querySpec.location_terms.length : 0} locations · {Array.isArray(session.querySpec.disqualifier_terms) ? session.querySpec.disqualifier_terms.length : 0} disqualifiers · {Array.isArray(session.esQuery?.queries) ? session.esQuery.queries.length : 0} queries
+                            {Array.isArray(session.querySpec.keyword_clusters) ? session.querySpec.keyword_clusters.length : 0} clusters · {Array.isArray(session.querySpec.location_terms) ? session.querySpec.location_terms.length : 0} locations · {Array.isArray(session.esQuery?.queries) ? session.esQuery.queries.length : 0} queries
                           </span>
                         </div>
                         <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180 shrink-0" />
@@ -499,19 +499,6 @@ export default function ChatArea({
                             {session.querySpec.location_terms.map((term: string, i: number) => (
                               <span key={i} className="text-[11px] font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/60 rounded px-2 py-0.5">
                                 {term}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {Array.isArray(session.querySpec.disqualifier_terms) && session.querySpec.disqualifier_terms.length > 0 && (
-                        <div className="space-y-2">
-                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Disqualifiers</span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {session.querySpec.disqualifier_terms.map((term: string, i: number) => (
-                              <span key={i} className="text-[11px] font-mono bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-900/60 rounded px-2 py-0.5">
-                                −{term}
                               </span>
                             ))}
                           </div>
