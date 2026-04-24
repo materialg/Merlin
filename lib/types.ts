@@ -1,10 +1,11 @@
+export type SitePlatform = 'linkedin' | 'github' | 'x';
+
+// What Gemini extracts from the JD. No titles, companies, or seniority as
+// targets — see geminiExtractJd.ts for the rationale.
 export type ExtractedJD = {
-  title?: string;
-  titles: string[];
-  skills: string[];
-  companies: string[];
-  seniority: string[];
-  location?: string;
+  keyword_clusters: string[][];
+  location_terms: string[];
+  disqualifier_terms: string[];
 };
 
 export type CseResult = {
@@ -14,21 +15,29 @@ export type CseResult = {
   pagemap?: any;
 };
 
-export type QuerySpec = {
-  title?: string;
-  skill_clusters: string[][];
-  job_title_roles?: string[];
-  job_title_sub_roles: string[];
-  job_title_levels?: string[];
-  years_experience_min?: number;
-  location?: {
-    postal_code?: string;
-    radius_miles?: number;
-    region?: string;
-  };
-  disqualifiers?: {
-    levels?: string[];
-  };
+// A single issued Google CSE query, tagged with its target site so we can
+// rebuild per-site ranks after merging.
+export type IssuedQuery = {
+  platform: SitePlatform;
+  domain: string;
+  q: string;
+};
+
+// Per-query debug record persisted to the search session so the UI can
+// inspect exactly what came back from each dork.
+export type QueryDebug = {
+  platform: SitePlatform;
+  domain: string;
+  q: string;
+  status: 'ok' | 'error';
+  resultCount: number;
+  error?: string;
+  rawItemSample?: CseResult;
+};
+
+export type DedupeDecision = {
+  nameKey: string;
+  mergedFrom: { platform: SitePlatform; url: string; rank: number }[];
 };
 
 export type NormalizedCandidate = {
@@ -40,7 +49,7 @@ export type NormalizedCandidate = {
   location: string;
   education: string;
   educationHistory: { school: string; degree: string; field: string; year: string }[];
-  platform: 'linkedin' | 'github' | 'arxiv' | 'huggingface' | 'x' | 'other';
+  platform: SitePlatform | 'arxiv' | 'huggingface' | 'other';
   url: string;
   email?: string;
   phone?: string;
@@ -49,4 +58,8 @@ export type NormalizedCandidate = {
   reasoning: string;
   impactSummary: string;
   socialLinks: { platform: string; url: string }[];
+  // Per-site CSE rank (1-based). Missing entries mean the candidate was
+  // absent from that site's results.
+  ranksBySite?: Partial<Record<SitePlatform, number>>;
+  matchedSites?: SitePlatform[];
 };

@@ -459,30 +459,108 @@ export default function ChatArea({
                     animate={{ opacity: 1, scale: 1 }}
                     className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-5"
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div className="space-y-4">
+                      <div>
                         <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Query spec</span>
-                        {session.querySpec.title && (
-                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{session.querySpec.title}</span>
-                        )}
                       </div>
-                      <pre className="text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded p-3">
-{JSON.stringify(session.querySpec, null, 2)}
-                      </pre>
-                      {session.esQuery && (
-                        <details className="text-[10px]">
-                          <summary className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest cursor-pointer hover:text-gray-600 dark:hover:text-gray-300">PDL ES query</summary>
-                          <pre className="mt-2 text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded p-3">
-{JSON.stringify(session.esQuery, null, 2)}
-                          </pre>
-                        </details>
+
+                      {Array.isArray(session.querySpec.keyword_clusters) && session.querySpec.keyword_clusters.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Keyword clusters</span>
+                          <div className="space-y-1.5">
+                            {session.querySpec.keyword_clusters.map((cluster: string[], i: number) => (
+                              <div key={i} className="flex flex-wrap gap-1.5 items-center">
+                                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">#{i + 1}</span>
+                                {cluster.map((term, j) => (
+                                  <span key={j} className="text-[11px] font-mono bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded px-2 py-0.5">
+                                    {term}
+                                  </span>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
+
+                      {Array.isArray(session.querySpec.location_terms) && session.querySpec.location_terms.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location terms</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {session.querySpec.location_terms.map((term: string, i: number) => (
+                              <span key={i} className="text-[11px] font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/60 rounded px-2 py-0.5">
+                                {term}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(session.querySpec.disqualifier_terms) && session.querySpec.disqualifier_terms.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Disqualifiers</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {session.querySpec.disqualifier_terms.map((term: string, i: number) => (
+                              <span key={i} className="text-[11px] font-mono bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-900/60 rounded px-2 py-0.5">
+                                −{term}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(session.esQuery?.queries) && session.esQuery.queries.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                            Dork queries fired ({session.esQuery.queries.length})
+                          </span>
+                          <div className="space-y-1.5">
+                            {session.esQuery.queries.map((q: { platform: string; domain: string; q: string }, i: number) => (
+                              <div key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded p-2.5 flex items-start gap-2">
+                                <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mt-0.5 shrink-0">{q.platform}</span>
+                                <code className="text-[11px] font-mono text-gray-700 dark:text-gray-200 break-all leading-relaxed">{q.q}</code>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {session.debug && (
                         <details className="text-[10px]">
-                          <summary className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest cursor-pointer hover:text-gray-600 dark:hover:text-gray-300">PDL debug · {session.debug.pdlTotalReturned} returned → {session.debug.candidatesAfterFilter ?? session.debug.pdlWithLinkedin} kept (w/ LinkedIn), {session.debug.pdlWithoutLinkedin} dropped</summary>
-                          <pre className="mt-2 text-[11px] text-gray-700 dark:text-gray-200 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded p-3">
-{JSON.stringify(session.debug.sampleRawPerson, null, 2)}
-                          </pre>
+                          <summary className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest cursor-pointer hover:text-gray-600 dark:hover:text-gray-300">
+                            CSE debug · {session.debug.totalRawItems ?? 0} raw → {session.debug.uniqueCandidates ?? 0} unique · {session.debug.multiSiteCandidates ?? 0} on 2+ sites
+                          </summary>
+                          <div className="mt-2 space-y-2">
+                            {Array.isArray(session.debug.queryDebug) && (
+                              <div className="space-y-1.5">
+                                {session.debug.queryDebug.map((qd: any, i: number) => (
+                                  <div key={i} className={`border rounded p-2 ${qd.status === 'ok' ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">{qd.platform}</span>
+                                      <span className={`text-[10px] font-bold ${qd.status === 'ok' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                                        {qd.status} · {qd.resultCount} results
+                                      </span>
+                                    </div>
+                                    {qd.error && (
+                                      <p className="text-[10px] text-red-700 dark:text-red-300 font-mono">{qd.error}</p>
+                                    )}
+                                    <code className="text-[10px] font-mono text-gray-600 dark:text-gray-300 break-all">{qd.q}</code>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {Array.isArray(session.debug.mergedAcrossSites) && session.debug.mergedAcrossSites.length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Cross-site matches</span>
+                                <div className="mt-1 space-y-1">
+                                  {session.debug.mergedAcrossSites.map((m: any, i: number) => (
+                                    <div key={i} className="text-[10px] font-mono text-gray-600 dark:text-gray-300">
+                                      {m.nameKey} — {(m.sites || []).join(', ')}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </details>
                       )}
                     </div>

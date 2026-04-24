@@ -1,58 +1,73 @@
-import type { ExtractedJD } from './types.js';
+import type { ExtractedJD, IssuedQuery, SitePlatform } from './types.js';
 
-const SITE = 'site:linkedin.com/in/';
+// One query per site. Shape:
+//   site:DOMAIN (clusterA_OR_terms) (clusterB_OR_terms) ... (location_OR_terms) -disq1 -disq2
+// Parenthesized groups are implicitly AND-ed; we never emit the literal word
+// "AND" (Google treats spaces as AND and can be confused by explicit AND in
+// some query templates).
 
-function quote(s: string): string {
-  const trimmed = s.trim();
-  if (!trimmed) return '';
-  return /\s/.test(trimmed) ? `"${trimmed}"` : trimmed;
+const SITES: { platform: SitePlatform; domain: string }[] = [
+  { platform: 'linkedin', domain: 'linkedin.com/in/' },
+  { platform: 'github', domain: 'github.com' },
+  { platform: 'x', domain: 'x.com' },
+];
+
+function quoteIfNeeded(s: string): string {
+  const t = s.trim();
+  if (!t) return '';
+  // Already-quoted phrases pass through untouched.
+  if (t.startsWith('"') && t.endsWith('"')) return t;
+  // Quote anything with whitespace OR a dash (Google would otherwise treat
+  // the dash as a negative operator).
+  return /[\s\-]/.test(t) ? `"${t.replace(/"/g, '')}"` : t;
 }
 
-function join(parts: string[]): string {
-  return [SITE, ...parts.filter(Boolean)].join(' ').trim();
+function orGroup(terms: string[]): string {
+  const cleaned = Array.from(new Set(terms.map(quoteIfNeeded).filter(Boolean)));
+  if (cleaned.length === 0) return '';
+  if (cleaned.length === 1) return `(${cleaned[0]})`;
+  return `(${cleaned.join(' OR ')})`;
 }
 
-export function buildXrayQueries(jd: ExtractedJD): string[] {
-  const titles = (jd.titles || []).slice(0, 3);
-  const skills = (jd.skills || []).slice(0, 4);
-  const companies = (jd.companies || []).slice(0, 3);
-  const seniority = (jd.seniority || [])[0] || '';
+function negativeTerms(terms: string[]): string {
+  return terms
+    .map(t => t.trim())
+    .filter(Boolean)
+    .map(t => {
+      // Google's minus operator only applies to a single token or a quoted
+      // phrase. Quote multi-word disqualifiers so -"Vice President" works.
+      const needsQuote = /\s/.test(t);
+      const body = needsQuote ? `"${t.replace(/"/g, '')}"` : t;
+      return `-${body}`;
+    })
+    .join(' ');
+}
 
-  const queries: string[] = [];
+export function buildXrayQueries(jd: ExtractedJD): IssuedQuery[] {
+  const clusterGroups = (jd.keyword_clusters || [])
+    .map(cluster => orGroup(cluster))
+    .filter(Boolean);
 
-  // Q1: primary title + top 2 skills
-  if (titles[0] && skills.length >= 1) {
-    queries.push(join([quote(titles[0]), ...skills.slice(0, 2).map(quote)]));
+  const locationGroup = orGroup(jd.location_terms || []);
+  const disqPart = negativeTerms(jd.disqualifier_terms || []);
+
+  const queries: IssuedQuery[] = [];
+  for (const { platform, domain } of SITES) {
+    const parts = [
+      `site:${domain}`,
+      ...clusterGroups,
+      locationGroup,
+      disqPart,
+    ].filter(Boolean);
+
+    const q = parts.join(' ').replace(/\s+/g, ' ').trim();
+
+    // Skip sites where the query is only the site: operator — that would
+    // dump a full directory rather than a filtered search.
+    if (q === `site:${domain}`) continue;
+
+    queries.push({ platform, domain, q });
   }
 
-  // Q2: primary title + top company
-  if (titles[0] && companies[0]) {
-    queries.push(join([quote(titles[0]), quote(companies[0])]));
-  }
-
-  // Q3: secondary title + top 2 skills
-  if (titles[1] && skills.length >= 1) {
-    queries.push(join([quote(titles[1]), ...skills.slice(0, 2).map(quote)]));
-  }
-
-  // Q4: seniority + primary title
-  if (seniority && titles[0]) {
-    queries.push(join([quote(seniority), quote(titles[0])]));
-  }
-
-  // Q5: multi-skill OR
-  if (skills.length >= 2) {
-    const orSkills = skills.slice(0, 4).map(quote).filter(Boolean).join(' OR ');
-    if (orSkills) queries.push(`${SITE} (${orSkills})`);
-  }
-
-  // Fallbacks to guarantee 5 when the JD is thin
-  if (queries.length < 5 && titles[0]) {
-    queries.push(join([quote(titles[0])]));
-  }
-  if (queries.length < 5 && skills[0]) {
-    queries.push(join([quote(skills[0]), quote(skills[1] || '')]));
-  }
-
-  return Array.from(new Set(queries)).slice(0, 5);
+  return queries;
 }

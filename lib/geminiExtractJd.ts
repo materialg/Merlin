@@ -1,8 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { ExtractedJD } from './types.js';
-import levels from '../data/pdl/levels.json' with { type: 'json' };
-
-const LEVELS = levels as string[];
 
 async function callWithRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 800): Promise<T> {
   let lastErr: any;
@@ -33,26 +30,33 @@ export type GeminiExtractArgs = {
   context?: string;
 };
 
+const SYSTEM_INSTRUCTION = `You extract search signals from a Job Description for a Google dork pipeline that searches LinkedIn, GitHub, and X.
+
+Output strict JSON matching this schema exactly — no other fields:
+
+{
+  "keyword_clusters": string[][],
+  "location_terms": string[],
+  "disqualifier_terms": string[]
+}
+
+RULES — follow all of them:
+
+1. NO titles. Never emit job titles ("Systems Engineer", "SWE", "Recruiter") as search terms.
+2. NO companies. Never invent or infer employer names. Only include a company if it is named verbatim in the JD or the user context, and even then prefer skills/tools over company names.
+3. NO seniority as targets. Words like "Senior", "Staff", "Principal", "Lead" go in disqualifier_terms only when the JD explicitly rules them out.
+4. keyword_clusters: for each skill/tool/technology mentioned in the JD, output a cluster of 2–6 functionally interchangeable terms a recruiter would treat as substitutes. Use your own knowledge of the landscape — MDM vendors (Jamf / Mosyle / Kandji / Addigy / Workspace ONE / Intune), EDR tools (CrowdStrike / SentinelOne / Jamf Protect / Sophos), identity providers (Entra / Azure AD / Okta / OneLogin / JumpCloud), cloud platforms, CI systems, etc. Include the canonical name plus common shorthands ("macOS" + "Mac", "Kubernetes" + "k8s"). Do not include the skill's parent category as a term ("MDM", "EDR", "SSO") — those match too broadly.
+5. location_terms: include the full place name, common abbreviations, and the metro-area phrasing. Example for Los Angeles: ["Los Angeles", "LA", "Greater Los Angeles"]. For New York: ["New York", "NYC", "Greater New York"]. Empty array if the JD does not specify a location.
+6. disqualifier_terms: single words or short phrases that, when present on a candidate's profile, mean they're the wrong person. Typical disqualifiers: management titles the role excludes ("Manager", "Director", "VP"), adjacent-but-wrong roles ("recruiter", "sales"), explicitly-excluded seniority. Empty array if the JD does not exclude anything.
+7. If the JD does not specify something, leave the corresponding field empty. Do not fill gaps with assumptions, synonyms of the company name, or guesses about the hiring company's peer set.
+8. Prefer recall over precision — recruiters will narrow by hand.
+
+Return only the JSON object. No prose.`;
+
 export async function geminiExtractJd(args: GeminiExtractArgs): Promise<ExtractedJD> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set in the server environment');
   const ai = new GoogleGenAI({ apiKey });
-
-  const systemInstruction = `You are a recruiting assistant. Extract the core search signals from a Job Description so we can build a LinkedIn X-ray search (site:linkedin.com/in/ "phrase" "skill").
-
-Output strict JSON with these fields:
-
-- titles: 2-4 job title phrases a candidate would write on their LinkedIn profile. Include close variants. For a "Systems Engineer" role you might include "Systems Engineer", "IT Engineer", "Systems Administrator", "Network Engineer". Keep them short and searchable.
-
-- skills: 4-8 specific technical skills, tools, or technologies from the JD. Prefer concrete named tools (e.g. "Jamf", "Intune", "Cisco IOS", "Okta") over generic categories ("networking", "security"). Lowercase. No marketing fluff.
-
-- companies: Current/past employers named in the JD AND 2-4 likely competitor or peer-industry companies. If the JD is for "Annenberg Foundation" (a film/media nonprofit), peer orgs might be "Getty", "LACMA", "Smithsonian", "Ford Foundation". Useful for finding candidates with similar backgrounds.
-
-- seniority: Match the JD level to one or more values from this canonical list: ${LEVELS.join(', ')}. Return 1-3 levels. Pick broadly — include adjacent levels so we don't over-filter.
-
-- location: Optional free-form location string (city, state, or ZIP) if the JD specifies one.
-
-Be specific. Favor terms likely to appear verbatim on a LinkedIn profile headline or experience section.`;
 
   const parts: any[] = [];
   if (args.jd_base64 && args.jd_mime) {
@@ -62,24 +66,25 @@ Be specific. Favor terms likely to appear verbatim on a LinkedIn profile headlin
     parts.push({ text: `Additional context from the user: ${args.context.trim()}` });
   }
   if (parts.length === 0) throw new Error('No JD or context provided to Gemini extract');
-  parts.push({ text: 'Extract the JD signals as JSON.' });
+  parts.push({ text: 'Extract the signals as JSON.' });
 
   const response = await callWithRetry(() => ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: [{ parts }],
     config: {
-      systemInstruction,
+      systemInstruction: SYSTEM_INSTRUCTION,
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          titles: { type: Type.ARRAY, items: { type: Type.STRING } },
-          skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          companies: { type: Type.ARRAY, items: { type: Type.STRING } },
-          seniority: { type: Type.ARRAY, items: { type: Type.STRING } },
-          location: { type: Type.STRING },
+          keyword_clusters: {
+            type: Type.ARRAY,
+            items: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+          location_terms: { type: Type.ARRAY, items: { type: Type.STRING } },
+          disqualifier_terms: { type: Type.ARRAY, items: { type: Type.STRING } },
         },
-        required: ['titles', 'skills', 'companies', 'seniority'],
+        required: ['keyword_clusters', 'location_terms', 'disqualifier_terms'],
       },
     },
   } as any));
@@ -93,14 +98,19 @@ Be specific. Favor terms likely to appear verbatim on a LinkedIn profile headlin
     throw new Error(`Gemini returned non-JSON: ${text?.slice(0, 300)}`);
   }
 
-  parsed.seniority = (parsed.seniority || []).filter(v => LEVELS.includes(v));
-  parsed.titles = parsed.titles || [];
-  parsed.skills = parsed.skills || [];
-  parsed.companies = parsed.companies || [];
+  // Defensive cleanup — strip empties, dedupe, trim.
+  const cleanList = (xs: unknown): string[] =>
+    Array.isArray(xs)
+      ? Array.from(new Set(xs.map(x => String(x).trim()).filter(Boolean)))
+      : [];
 
-  // Synthesize a short human title for the session header
-  const titleBits = [parsed.seniority[0], parsed.titles[0]].filter(Boolean) as string[];
-  parsed.title = titleBits.length ? titleBits.join(' ') : undefined;
-
-  return parsed;
+  return {
+    keyword_clusters: Array.isArray(parsed.keyword_clusters)
+      ? parsed.keyword_clusters
+          .map(cluster => cleanList(cluster))
+          .filter(cluster => cluster.length > 0)
+      : [],
+    location_terms: cleanList(parsed.location_terms),
+    disqualifier_terms: cleanList(parsed.disqualifier_terms),
+  };
 }

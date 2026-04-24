@@ -1,9 +1,15 @@
 import { geminiExtractJd } from '../lib/geminiExtractJd.js';
 import { buildXrayQueries } from '../lib/queryBuilder.js';
 import { searchCSE, CseError } from '../lib/cseClient.js';
-import { normalizeCseResult, normalizeLinkedinUrl } from '../lib/normalizeCseResult.js';
+import { normalizeCseResult } from '../lib/normalizeCseResult.js';
 import { scoreCandidate } from '../lib/scorer.js';
-import type { CseResult } from '../lib/types.js';
+import type {
+  CseResult,
+  IssuedQuery,
+  NormalizedCandidate,
+  QueryDebug,
+  SitePlatform,
+} from '../lib/types.js';
 
 type Body = {
   jd_base64?: string;
@@ -12,8 +18,13 @@ type Body = {
   sessionId?: string;
 };
 
-const MAX_CSE_QUERIES = 5;
-const MAX_CANDIDATES = 20;
+const MAX_CANDIDATES = 40;
+const RESULTS_PER_QUERY = 10; // Google CSE hard cap is 10 per call.
+
+type DedupeTrace = {
+  nameKey: string;
+  mergedFrom: { platform: SitePlatform; url: string; rank: number }[];
+};
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -32,87 +43,166 @@ export default async function handler(req: any, res: any) {
     console.log('[api/search] extracting JD signals...');
     const extractedJd = await geminiExtractJd({ jd_base64, jd_mime, context });
     console.log('[api/search] extracted:', {
-      titles: extractedJd.titles.length,
-      skills: extractedJd.skills.length,
-      companies: extractedJd.companies.length,
-      seniority: extractedJd.seniority,
+      clusters: extractedJd.keyword_clusters.length,
+      locations: extractedJd.location_terms.length,
+      disqualifiers: extractedJd.disqualifier_terms.length,
     });
 
-    const queries = buildXrayQueries(extractedJd).slice(0, MAX_CSE_QUERIES);
-    console.log(`[api/search] built ${queries.length} X-ray queries`);
-    for (const q of queries) console.log('  ›', q);
+    const queries: IssuedQuery[] = buildXrayQueries(extractedJd);
+    console.log(`[api/search] built ${queries.length} X-ray queries:`);
+    for (const q of queries) console.log('  ›', q.platform, q.q);
 
-    console.log(`[api/search] running ${queries.length} CSE queries in parallel (10 results each)...`);
-    const cseResponses = await Promise.allSettled(queries.map(q => searchCSE(q, 10)));
+    console.log(`[api/search] running ${queries.length} CSE queries in parallel (${RESULTS_PER_QUERY} results each)...`);
+    const cseResponses = await Promise.allSettled(
+      queries.map(q => searchCSE(q.q, RESULTS_PER_QUERY))
+    );
 
-    const allResults: CseResult[] = [];
-    let cseSuccesses = 0;
-    let cseFailures = 0;
-    const cseErrors: string[] = [];
+    const queryDebug: QueryDebug[] = [];
+    const perQueryResults: { query: IssuedQuery; items: CseResult[] }[] = [];
     for (const [i, r] of cseResponses.entries()) {
+      const q = queries[i];
       if (r.status === 'fulfilled') {
-        cseSuccesses++;
-        allResults.push(...r.value);
+        queryDebug.push({
+          platform: q.platform,
+          domain: q.domain,
+          q: q.q,
+          status: 'ok',
+          resultCount: r.value.length,
+          rawItemSample: r.value[0],
+        });
+        perQueryResults.push({ query: q, items: r.value });
+        console.log(`[api/search] ✓ ${q.platform}: ${r.value.length} hits`);
       } else {
-        cseFailures++;
         const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
-        cseErrors.push(`q${i + 1}: ${msg}`);
-        console.warn(`[api/search] CSE query ${i + 1} failed:`, msg);
+        queryDebug.push({
+          platform: q.platform,
+          domain: q.domain,
+          q: q.q,
+          status: 'error',
+          resultCount: 0,
+          error: msg,
+        });
+        perQueryResults.push({ query: q, items: [] });
+        console.warn(`[api/search] ✗ ${q.platform} query failed:`, msg);
       }
     }
-    console.log(`[api/search] CSE: ${cseSuccesses} ok, ${cseFailures} failed, ${allResults.length} total items`);
 
-    const linkedinResults = allResults.filter(it => /linkedin\.com\/in\//i.test(it.url));
-    console.log(`[api/search] LinkedIn filter: ${linkedinResults.length} of ${allResults.length}`);
+    // Merge across sites: dedupe by normalized name, unioning per-site URLs
+    // and ranks. Order of arrival doesn't matter — we keep the candidate's
+    // first-seen id and merge the rest.
+    const byNameKey = new Map<string, NormalizedCandidate>();
+    const dedupeTrace: DedupeTrace[] = [];
 
-    // Dedupe by normalized LinkedIn URL, preserving CSE result order (= rank)
-    const seen = new Set<string>();
-    const unique: CseResult[] = [];
-    for (const it of linkedinResults) {
-      const key = normalizeLinkedinUrl(it.url);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      unique.push(it);
+    let totalRawItems = 0;
+    let totalNormalized = 0;
+
+    for (const { query, items } of perQueryResults) {
+      totalRawItems += items.length;
+      for (let i = 0; i < items.length; i++) {
+        const rank = i + 1;
+        const hit = normalizeCseResult(items[i], query.platform, rank, sessionId || 'tmp', i);
+        if (!hit) continue;
+        totalNormalized++;
+
+        const existing = byNameKey.get(hit.nameKey);
+        if (!existing) {
+          byNameKey.set(hit.nameKey, hit.candidate);
+          dedupeTrace.push({
+            nameKey: hit.nameKey,
+            mergedFrom: [{ platform: query.platform, url: hit.candidate.url, rank }],
+          });
+          continue;
+        }
+
+        // Merge: add this site's URL/rank onto the existing candidate.
+        const existingLinks = existing.socialLinks || [];
+        const hasLink = existingLinks.some(l => l.url === hit.candidate.url);
+        const mergedLinks = hasLink
+          ? existingLinks
+          : [...existingLinks, { platform: query.platform, url: hit.candidate.url }];
+
+        const mergedRanks = { ...(existing.ranksBySite || {}) };
+        // Keep the best (lowest) rank we've seen for this site.
+        const prevRank = mergedRanks[query.platform];
+        mergedRanks[query.platform] = prevRank ? Math.min(prevRank, rank) : rank;
+
+        const matchedSites = Array.from(
+          new Set([...(existing.matchedSites || []), query.platform])
+        );
+
+        // Prefer whichever hit carries the longer bio/title (LinkedIn snippets
+        // tend to be richer than GitHub/X) so the card has useful text.
+        const preferLonger = (a: string, b: string) => (b && b.length > a.length ? b : a);
+        const merged: NormalizedCandidate = {
+          ...existing,
+          title: preferLonger(existing.title, hit.candidate.title),
+          company: preferLonger(existing.company, hit.candidate.company),
+          bio: preferLonger(existing.bio, hit.candidate.bio),
+          impactSummary: preferLonger(existing.impactSummary, hit.candidate.impactSummary),
+          socialLinks: mergedLinks,
+          ranksBySite: mergedRanks,
+          matchedSites,
+        };
+        byNameKey.set(hit.nameKey, merged);
+
+        const traceEntry = dedupeTrace.find(d => d.nameKey === hit.nameKey);
+        if (traceEntry) {
+          traceEntry.mergedFrom.push({
+            platform: query.platform,
+            url: hit.candidate.url,
+            rank,
+          });
+        }
+      }
     }
-    console.log(`[api/search] unique after dedupe: ${unique.length}`);
 
-    const capped = unique.slice(0, MAX_CANDIDATES);
-    console.log(`[api/search] capped at ${MAX_CANDIDATES}: ${capped.length} kept`);
+    console.log(
+      `[api/search] merged: ${totalNormalized} normalized hits → ${byNameKey.size} unique candidates`
+    );
+    const multiSiteCount = Array.from(byNameKey.values()).filter(
+      c => (c.matchedSites?.length || 0) >= 2
+    ).length;
+    console.log(`[api/search] ${multiSiteCount} candidates found on 2+ sites`);
 
-    const candidates = capped
-      .map((it, i) => normalizeCseResult(it, sessionId || 'tmp', i))
-      .filter((c): c is NonNullable<typeof c> => c !== null)
-      .map(c => scoreCandidate(c, extractedJd));
+    const scored = Array.from(byNameKey.values())
+      .map(c => scoreCandidate(c))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_CANDIDATES);
 
-    candidates.sort((a, b) => b.score - a.score);
-    console.log(`[api/search] final: ${candidates.length} scored candidates`);
+    console.log(`[api/search] final: ${scored.length} scored candidates (cap ${MAX_CANDIDATES})`);
+
+    const dedupeSummary = dedupeTrace
+      .filter(d => d.mergedFrom.length > 1)
+      .map(d => ({
+        nameKey: d.nameKey,
+        sites: d.mergedFrom.map(m => `${m.platform}@${m.rank}`),
+      }));
 
     const debugInfo = {
       pipeline: 'cse',
       extractedJd,
       queries,
-      cseSuccesses,
-      cseFailures,
-      cseErrors,
-      cseRawItemCount: allResults.length,
-      cseLinkedinUrlCount: linkedinResults.length,
-      cseUniqueUrlCount: unique.length,
-      cseAfterCap: capped.length,
-      finalCandidateCount: candidates.length,
-      sampleCseItem: capped[0] ?? null,
+      queryDebug,
+      totalRawItems,
+      totalNormalized,
+      uniqueCandidates: byNameKey.size,
+      multiSiteCandidates: multiSiteCount,
+      finalCandidateCount: scored.length,
+      mergedAcrossSites: dedupeSummary,
     };
 
     return res.status(200).json({
-      // Kept for UI compatibility — querySpec/esQuery card renders these as-is
       querySpec: extractedJd,
       esQuery: { pipeline: 'cse', queries },
-      candidates,
+      candidates: scored,
       debug: debugInfo,
     });
   } catch (err: any) {
     console.error('[api/search] failed:', err);
     if (err instanceof CseError) {
-      return res.status(err.status >= 400 && err.status < 600 ? err.status : 500).json({ error: err.message });
+      return res
+        .status(err.status >= 400 && err.status < 600 ? err.status : 500)
+        .json({ error: err.message });
     }
     return res.status(500).json({ error: err?.message || 'Internal error' });
   }

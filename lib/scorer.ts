@@ -1,55 +1,60 @@
-import type { NormalizedCandidate, ExtractedJD } from './types.js';
+import type { NormalizedCandidate, SitePlatform } from './types.js';
 
-const norm = (s: string) => s.toLowerCase().trim();
-const contains = (haystack: string, needle: string) =>
-  !!needle && norm(haystack).includes(norm(needle));
+// Placeholder scorer — rank-based until the real Gemini semantic scorer
+// lands. Victor's spec:
+//   base = piecewise-linear decay over CSE rank
+//     rank 1  → 100
+//     rank 10 → 50
+//     rank 25 → 4
+//     rank >25 tapers linearly to 0
+//   multiplier = { 1: 1.0, 2: 1.3, 3: 1.5 } keyed by distinct sites matched
+//   final = round(clamp(0..100, base * multiplier))
+// For multi-site candidates we take the best (lowest) rank across sites,
+// since appearing well-ranked on any site is strong signal.
 
-/**
- * Score a CSE-derived candidate against the extracted JD.
- *
- * Field semantics in this PR (without PDL enrichment):
- *   techMatch        (/40) - skill overlap in title + snippet
- *   contributionMatch (/30) - parsed current company vs JD companies
- *   seniorityMatch   (/20) - seniority keyword in title/snippet
- *   educationMatch   (/10) - placeholder for tenure; 0 until PDL enrich lands
- *
- * Field names are kept for UI compatibility; labels in the card UI may
- * later be renamed once the PDL enrichment path goes live.
- */
-export function scoreCandidate(c: NormalizedCandidate, jd: ExtractedJD): NormalizedCandidate {
-  const searchable = `${c.title} ${c.company} ${c.bio}`;
+const SITE_MULTIPLIER: Record<number, number> = { 1: 1.0, 2: 1.3, 3: 1.5 };
 
-  // techMatch: fraction of JD skills found anywhere in title + company + bio
-  const skills = jd.skills || [];
-  const matchedSkillCount = skills.filter(s => contains(searchable, s)).length;
-  const techMatch = skills.length === 0
-    ? 0
-    : Math.min(40, Math.round((matchedSkillCount / skills.length) * 40));
-
-  // contributionMatch: parsed current-company match
-  const companies = jd.companies || [];
-  let contributionMatch = 0;
-  if (c.company && companies.length > 0) {
-    const hit = companies.some(jc =>
-      contains(c.company, jc) || contains(jc, c.company)
-    );
-    if (hit) contributionMatch = 30;
+export function rankToBaseScore(rank: number): number {
+  if (rank <= 0) return 0;
+  if (rank <= 10) {
+    // 1 → 100, 10 → 50.
+    return 100 - ((100 - 50) / (10 - 1)) * (rank - 1);
   }
+  if (rank <= 25) {
+    // 10 → 50, 25 → 4.
+    return 50 - ((50 - 4) / (25 - 10)) * (rank - 10);
+  }
+  // 25 → 4 tapering to 0 over the next 20 ranks.
+  return Math.max(0, 4 - (rank - 25) * 0.2);
+}
 
-  // seniorityMatch: any JD seniority keyword appears in title or bio
-  const seniorities = jd.seniority || [];
-  const titleBio = `${c.title} ${c.bio}`;
-  const seniorityHit = seniorities.some(s => contains(titleBio, s));
-  const seniorityMatch = seniorityHit ? 20 : 0;
+export function siteMultiplier(siteCount: number): number {
+  return SITE_MULTIPLIER[siteCount] ?? 1.0;
+}
 
-  // educationMatch: repurposed for tenure, unavailable without PDL enrich
-  const educationMatch = 0;
-
-  const score = techMatch + contributionMatch + seniorityMatch + educationMatch;
-
+export function scoreCandidate(c: NormalizedCandidate): NormalizedCandidate {
+  const ranks = Object.values(c.ranksBySite || {}).filter((r): r is number => typeof r === 'number' && r > 0);
+  const matchedSiteCount = ranks.length;
+  if (matchedSiteCount === 0) {
+    return { ...c, score: 0, scoringBreakdown: { techMatch: 0, contributionMatch: 0, seniorityMatch: 0, educationMatch: 0 } };
+  }
+  const bestRank = Math.min(...ranks);
+  const base = rankToBaseScore(bestRank);
+  const mult = siteMultiplier(matchedSiteCount);
+  const final = Math.max(0, Math.min(100, Math.round(base * mult)));
   return {
     ...c,
-    score,
-    scoringBreakdown: { techMatch, contributionMatch, seniorityMatch, educationMatch },
+    score: final,
+    // Sub-scores deprecated under the CSE pipeline — kept at 0 for type
+    // compatibility. UI shows the unified `score` only.
+    scoringBreakdown: { techMatch: 0, contributionMatch: 0, seniorityMatch: 0, educationMatch: 0 },
   };
 }
+
+export type MergeSummary = {
+  candidates: NormalizedCandidate[];
+  dedupeDecisions: {
+    nameKey: string;
+    mergedFrom: { platform: SitePlatform; url: string; rank: number }[];
+  }[];
+};
