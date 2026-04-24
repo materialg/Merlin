@@ -199,7 +199,7 @@ export default function App() {
         const errBody = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
         throw new Error(errBody.error || `Search failed (${resp.status})`);
       }
-      const { querySpec, esQuery, candidates: pdlCandidates } = await resp.json();
+      const { querySpec, esQuery, candidates: pdlCandidates, debug } = await resp.json();
 
       const candidates: Candidate[] = (pdlCandidates || []).map((c: any) => ({
         ...c,
@@ -211,6 +211,7 @@ export default function App() {
         title: querySpec?.title || newSession.title,
         querySpec,
         esQuery,
+        debug,
         candidates,
       }, { merge: true }).catch(err => handleFirestoreError(err, OperationType.UPDATE, sessionRef.path));
 

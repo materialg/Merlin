@@ -29,7 +29,14 @@ export default async function handler(req: any, res: any) {
     const pdlResults = await searchPdl(esQuery);
     const candidates = pdlResults.map((p, i) => normalizePdlPerson(p, sessionId || 'tmp', i));
 
-    return res.status(200).json({ querySpec, esQuery, candidates });
+    const debugInfo = {
+      pdlTotalReturned: pdlResults.length,
+      pdlWithLinkedin: pdlResults.filter(p => p?.linkedin_url).length,
+      pdlWithoutLinkedin: pdlResults.filter(p => !p?.linkedin_url).length,
+      sampleRawPerson: pdlResults[0] ?? null,
+    };
+
+    return res.status(200).json({ querySpec, esQuery, candidates, debug: debugInfo });
   } catch (err: any) {
     console.error('[api/search] failed:', err);
     if (err instanceof PdlError) {
