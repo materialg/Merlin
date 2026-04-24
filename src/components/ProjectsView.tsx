@@ -31,11 +31,11 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-gray-900">Projects ({projects.length})</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Projects ({projects.length})</h1>
         </div>
         <button 
           onClick={() => setIsAdding(true)}
@@ -47,15 +47,15 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
       </div>
 
       {/* Toolbar */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-4 bg-gray-50/30">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 bg-gray-50/30">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input 
             type="text"
             placeholder="Search projects..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
           />
         </div>
       </div>
@@ -66,9 +66,9 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 p-6 bg-blue-50/50 border border-blue-100 rounded-2xl"
+            className="mb-8 p-6 bg-blue-50/50 border border-blue-100 dark:border-blue-900/60 rounded-2xl"
           >
-            <h2 className="text-sm font-bold text-blue-900 mb-4">Create New Project</h2>
+            <h2 className="text-sm font-bold text-blue-900 dark:text-blue-200 mb-4">Create New Project</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-blue-900/40 uppercase tracking-wider mb-1.5">Project Name</label>
@@ -78,7 +78,7 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Senior Frontend Engineer - Q3"
-                  className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/60 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                 />
               </div>
               <div>
@@ -87,13 +87,13 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="What is this project for?"
-                  className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none h-24"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-800/60 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none h-24"
                 />
               </div>
               <div className="flex items-center justify-end gap-2">
                 <button 
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 text-gray-500 hover:text-gray-700 text-sm font-bold"
+                  className="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm font-bold"
                 >
                   Cancel
                 </button>
@@ -116,10 +116,10 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
               <motion.div 
                 key={project.id}
                 layout
-                className="group p-5 bg-white border border-gray-100 rounded-2xl hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 transition-all cursor-pointer relative"
+                className="group p-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl hover:border-blue-200 dark:hover:border-blue-800/60 hover:shadow-xl hover:shadow-blue-900/5 transition-all cursor-pointer relative"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/40 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <button 
@@ -127,30 +127,30 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
                       e.stopPropagation();
                       onDeleteProject(project.id);
                     }}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
                 
-                <h3 className="text-base font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{project.name}</h3>
-                <p className="text-sm text-gray-500 line-clamp-2 mb-4 h-10">
+                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{project.name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 h-10">
                   {project.description || 'No description provided.'}
                 </p>
 
-                <div className="flex items-center gap-4 pt-4 border-t border-gray-50">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <div className="flex items-center gap-4 pt-4 border-t border-gray-50 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                     <Users className="w-3.5 h-3.5" />
                     {projectContacts.length} Candidates
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(project.createdAt).toLocaleDateString()}
                   </div>
                 </div>
 
                 <div className="absolute bottom-5 right-5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                  <ChevronRight className="w-5 h-5 text-blue-600" />
+                  <ChevronRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
               </motion.div>
             );
@@ -159,11 +159,11 @@ export default function ProjectsView({ projects, contacts, onAddProject, onDelet
 
         {filteredProjects.length === 0 && !isAdding && (
           <div className="py-20 text-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Briefcase className="w-8 h-8 text-gray-200" />
+            <div className="w-16 h-16 bg-gray-50 dark:bg-gray-900 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Briefcase className="w-8 h-8 text-gray-200 dark:text-gray-700" />
             </div>
-            <h3 className="text-gray-900 font-bold mb-1">No projects found</h3>
-            <p className="text-gray-400 text-sm max-w-xs mx-auto">
+            <h3 className="text-gray-900 dark:text-gray-100 font-bold mb-1">No projects found</h3>
+            <p className="text-gray-400 dark:text-gray-500 text-sm max-w-xs mx-auto">
               Create your first project to start organizing your talent pipeline.
             </p>
           </div>

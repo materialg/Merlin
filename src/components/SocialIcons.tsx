@@ -59,7 +59,7 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
         className={`p-1 rounded transition-all ${
           isMissing 
             ? 'text-gray-100 cursor-default pointer-events-none' 
-            : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+            : 'text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
         }`}
         title={isMissing ? `No ${platform.label} profile` : `View ${platform.label}`}
       >
@@ -71,7 +71,7 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
   const emailLink = candidate.email ? (
     <a 
       href={`mailto:${candidate.email}`}
-      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+      className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-all"
       title="Send Email"
     >
       <Mail className="w-3.5 h-3.5" />
@@ -104,7 +104,7 @@ export const getSocialIcons = (candidate: Candidate, onEdit?: () => void) => {
             e.stopPropagation();
             onEdit();
           }}
-          className="p-1 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-all"
+          className="p-1 text-gray-300 dark:text-gray-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-all"
           title="Edit profiles"
         >
           <Pencil className="w-3 h-3" />

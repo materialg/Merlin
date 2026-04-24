@@ -29,20 +29,20 @@ export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candi
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100"
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-gray-800"
         >
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Why is this not a match?
               </h3>
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <p className="text-sm text-gray-500 mb-4">
-              Your feedback helps Merlin calibrate the search for <span className="font-semibold text-gray-700">{candidateName}</span>.
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Your feedback helps Merlin calibrate the search for <span className="font-semibold text-gray-700 dark:text-gray-200">{candidateName}</span>.
             </p>
 
             <textarea
@@ -50,13 +50,13 @@ export default function FeedbackModal({ isOpen, onClose, onSubmit, onSkip, candi
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="e.g., Too junior for this specific role..."
-              className="w-full h-32 p-4 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none transition-all"
+              className="w-full h-32 p-4 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none transition-all"
             />
 
             <div className="flex items-center justify-between mt-6 gap-3">
               <button
                 onClick={onSkip}
-                className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all"
               >
                 Skip
               </button>

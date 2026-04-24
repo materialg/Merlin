@@ -101,15 +101,15 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden"
           >
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Edit Profiles</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Updating links for {candidateName}</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profiles</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Updating links for {candidateName}</p>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
+              <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
 
@@ -121,7 +121,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                       <select
                         value={link.platform}
                         onChange={(e) => handleUpdateLink(index, 'platform', e.target.value)}
-                        className="col-span-5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className="col-span-5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       >
                         {PLATFORMS.map(p => (
                           <option key={p} value={p}>{p}</option>
@@ -132,7 +132,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                         value={link.url}
                         onChange={(e) => handleUpdateLink(index, 'url', e.target.value)}
                         placeholder="https://..."
-                        className="col-span-7 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        className="col-span-7 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -143,7 +143,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                       className={`p-2 rounded-lg transition-all ${
                         anchorUrl === link.url 
                           ? 'text-yellow-500 bg-yellow-50 opacity-100' 
-                          : 'text-gray-300 hover:text-yellow-500 hover:bg-yellow-50 opacity-0 group-hover:opacity-100'
+                          : 'text-gray-300 dark:text-gray-600 hover:text-yellow-500 hover:bg-yellow-50 opacity-0 group-hover:opacity-100'
                       }`}
                       title={anchorUrl === link.url ? "Anchor profile (Source of Truth)" : "Set as anchor profile"}
                     >
@@ -151,7 +151,7 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
                     </button>
                     <button
                       onClick={() => handleRemoveLink(index)}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -161,17 +161,17 @@ export default function SocialLinksModal({ isOpen, onClose, onSave, initialLinks
 
               <button
                 onClick={handleAddLink}
-                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+                className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all flex items-center justify-center gap-2 text-sm font-medium"
               >
                 <Plus className="w-4 h-4" />
                 Add Another Profile
               </button>
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors"
+                className="px-4 py-2 text-sm font-bold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
                 Cancel
               </button>

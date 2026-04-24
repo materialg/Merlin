@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { PanelLeft } from 'lucide-react';
+import { PanelLeft, Sun, Moon } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import SearchInput from './components/SearchInput';
@@ -9,6 +9,7 @@ import { SearchSession, Candidate, ViewMode, NavTab, Contact, Project } from './
 import { enrichCandidateProfile, rescoreCandidate, sourceLookalikes, parseLinkedInProfile, parseCandidateFromUrl } from './services/gemini';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './lib/firebase';
 import { cleanObject, cleanUrl } from './lib/utils';
+import { useTheme } from './lib/theme';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, doc, setDoc, onSnapshot, query, orderBy, getDocFromServer, deleteDoc } from 'firebase/firestore';
 
@@ -26,6 +27,7 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [refreshingIds, setRefreshingIds] = useState<string[]>([]);
+  const [theme, , toggleTheme] = useTheme();
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -785,7 +787,7 @@ export default function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -793,17 +795,24 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50 font-sans p-4">
-        <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-5xl shadow-xl shadow-blue-900/5 border border-blue-100 mb-8">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 font-sans p-4 relative">
+        <button
+          onClick={toggleTheme}
+          className="absolute top-4 right-4 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+        <div className="w-24 h-24 bg-white dark:bg-gray-900 rounded-3xl flex items-center justify-center text-5xl shadow-xl shadow-blue-900/5 border border-blue-100 dark:border-blue-900/60 mb-8">
           🧙‍♂️
         </div>
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4 text-center">Talent Wizard</h1>
-        <p className="text-gray-500 mb-8 text-center max-w-md text-lg">
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 mb-4 text-center">Talent Wizard</h1>
+        <p className="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-md text-lg">
           AI-powered candidate sourcing and technical fingerprinting. Log in to start finding the perfect candidates.
         </p>
-        <button 
+        <button
           onClick={loginWithGoogle}
-          className="flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 rounded-xl text-base font-bold transition-all shadow-sm active:scale-95"
+          className="flex items-center justify-center gap-3 py-3.5 px-6 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-xl text-base font-bold transition-all shadow-sm active:scale-95"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -818,7 +827,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 font-sans overflow-hidden">
       <Sidebar 
         sessions={sessions} 
         activeSessionId={activeSessionId}
@@ -847,11 +856,11 @@ export default function App() {
         />
       )}
       
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white dark:bg-gray-900 relative">
         {isSidebarCollapsed && (
           <button
             onClick={() => setIsSidebarCollapsed(false)}
-            className="absolute top-4 left-4 z-50 p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-500 hover:text-blue-600 hover:border-blue-200 transition-all"
+            className="absolute top-4 left-4 z-50 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800/60 transition-all"
             title="Expand sidebar"
           >
             <PanelLeft className="w-5 h-5" />

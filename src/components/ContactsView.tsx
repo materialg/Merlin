@@ -178,12 +178,12 @@ export default function ContactsView({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-gray-900">All Contacts ({contacts.length})</h1>
-          <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">All Contacts ({contacts.length})</h1>
+          <button className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-all">
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
@@ -211,19 +211,19 @@ export default function ContactsView({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
             >
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-bold text-gray-900">{parsedCandidate ? 'Verify Contact Details' : 'Add New Contact'}</h3>
+              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">{parsedCandidate ? 'Verify Contact Details' : 'Add New Contact'}</h3>
                 <button 
                   onClick={() => {
                     setIsUploadModalOpen(false);
                     setParsedCandidate(null);
                     setContactUrl('');
                   }} 
-                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-400" />
+                  <X className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 </button>
               </div>
               
@@ -231,46 +231,46 @@ export default function ContactsView({
                 {parsedCandidate ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Name</label>
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Name</label>
                       <input 
                         type="text"
                         value={parsedCandidate.name || ''}
                         onChange={(e) => setParsedCandidate({ ...parsedCandidate, name: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Current Role</label>
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Current Role</label>
                       <input 
                         type="text"
                         value={parsedCandidate.title || ''}
                         onChange={(e) => setParsedCandidate({ ...parsedCandidate, title: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Organization</label>
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organization</label>
                       <input 
                         type="text"
                         value={parsedCandidate.company || ''}
                         onChange={(e) => setParsedCandidate({ ...parsedCandidate, company: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Location</label>
+                      <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</label>
                       <input 
                         type="text"
                         value={parsedCandidate.location || ''}
                         onChange={(e) => setParsedCandidate({ ...parsedCandidate, location: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                       />
                     </div>
                     
                     <div className="pt-4 flex gap-3">
                       <button 
                         onClick={() => setParsedCandidate(null)}
-                        className="flex-1 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
+                        className="flex-1 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 rounded-xl transition-all"
                       >
                         Back
                       </button>
@@ -302,7 +302,7 @@ export default function ContactsView({
                 ) : (
                   <>
                     <div className="space-y-3">
-                      <label className="text-xs font-black text-gray-400 uppercase tracking-wider">Paste Profile URL</label>
+                      <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Paste Profile URL</label>
                       <div className="flex gap-2">
                         <input 
                           type="text"
@@ -327,7 +327,7 @@ export default function ContactsView({
                               }
                             }
                           }}
-                          className={`${parseError ? 'border-red-300 ring-red-500/10' : 'border-gray-200'} flex-1 px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`}
+                          className={`${parseError ? 'border-red-300 ring-red-500/10' : 'border-gray-200 dark:border-gray-700'} flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all`}
                         />
                         <button 
                           onClick={async () => {
@@ -356,7 +356,7 @@ export default function ContactsView({
                         </button>
                       </div>
                       {parseError && (
-                        <p className="text-xs text-red-500 font-medium px-1 flex items-center gap-1">
+                        <p className="text-xs text-red-500 dark:text-red-400 font-medium px-1 flex items-center gap-1">
                           <X className="w-3 h-3" />
                           {parseError}
                         </p>
@@ -365,10 +365,10 @@ export default function ContactsView({
 
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-100"></div>
+                        <div className="w-full border-t border-gray-100 dark:border-gray-800"></div>
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white px-2 text-gray-400 font-bold">Or upload file</span>
+                        <span className="bg-white dark:bg-gray-900 px-2 text-gray-400 dark:text-gray-500 font-bold">Or upload file</span>
                       </div>
                     </div>
 
@@ -376,15 +376,15 @@ export default function ContactsView({
                       onClick={() => fileInputRef.current?.click()}
                       onDragOver={(e) => {
                         e.preventDefault();
-                        e.currentTarget.classList.add('border-blue-500', 'bg-blue-50');
+                        e.currentTarget.classList.add('border-blue-500', 'bg-blue-50 dark:bg-blue-950/40');
                       }}
                       onDragLeave={(e) => {
                         e.preventDefault();
-                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50 dark:bg-blue-950/40');
                       }}
                       onDrop={async (e) => {
                         e.preventDefault();
-                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+                        e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50 dark:bg-blue-950/40');
                         const file = e.dataTransfer.files?.[0];
                         if (file) {
                           setIsParsing(true);
@@ -413,18 +413,18 @@ export default function ContactsView({
                         }
                       }}
                       tabIndex={0}
-                      className="border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer group outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer group outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
-                      <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950/40 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                         {isParsing ? (
                           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                         ) : (
-                          <Linkedin className="w-8 h-8 text-blue-600" />
+                          <Linkedin className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                         )}
                       </div>
                       <div className="text-center">
-                        <p className="font-bold text-gray-900">Upload LinkedIn Profile</p>
-                        <p className="text-sm text-gray-500 mt-1">PDF or Resume file</p>
+                        <p className="font-bold text-gray-900 dark:text-gray-100">Upload LinkedIn Profile</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PDF or Resume file</p>
                       </div>
                       <input 
                         type="file" 
@@ -448,9 +448,9 @@ export default function ContactsView({
                       />
                     </div>
                     
-                    <div className="mt-6 flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                      <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-xs text-blue-700 leading-relaxed">
+                    <div className="mt-6 flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/60">
+                      <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
                         Merlin will automatically parse the profile and extract key details like name, title, company, and education.
                       </p>
                     </div>
@@ -463,19 +463,19 @@ export default function ContactsView({
       </AnimatePresence>
 
       {/* Toolbar */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-4 bg-gray-50/30">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 bg-gray-50/30">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input 
             type="text"
             placeholder="Search by name, company, etc."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all shadow-sm">
-          <Filter className="w-4 h-4 text-gray-400" />
+        <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-900 transition-all shadow-sm">
+          <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
           Add Filter
         </button>
       </div>
@@ -483,17 +483,17 @@ export default function ContactsView({
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse text-left min-w-[1200px]">
-          <thead className="sticky top-0 bg-gray-50/80 backdrop-blur-sm z-10 border-b border-gray-100">
+          <thead className="sticky top-0 bg-gray-50/80 backdrop-blur-sm z-10 border-b border-gray-100 dark:border-gray-800">
             <tr>
               <th className="py-3 px-4 w-10">
                 <input 
                   type="checkbox" 
                   checked={selectedIds.length === filteredContacts.length && filteredContacts.length > 0}
                   onChange={toggleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                 />
               </th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                 <div className="flex items-center gap-2">
                   Candidate
                   <button 
@@ -502,7 +502,7 @@ export default function ContactsView({
                       else if (sortOrder === 'asc') setSortOrder('desc');
                       else setSortOrder(null);
                     }}
-                    className={`p-1 rounded hover:bg-gray-100 transition-all ${sortOrder ? 'text-blue-600' : 'text-gray-400'}`}
+                    className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${sortOrder ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}
                     title="Sort Alphabetically"
                   >
                     {sortOrder === 'asc' ? (
@@ -515,18 +515,18 @@ export default function ContactsView({
                   </button>
                 </div>
               </th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Organization</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Current Role</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Education</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Location</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Projects</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider">Tags</th>
-              <th className="py-3 px-4 text-[11px] font-black text-gray-400 uppercase tracking-wider text-right">
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Organization</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Current Role</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Education</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Projects</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Tags</th>
+              <th className="py-3 px-4 text-[11px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider text-right">
                 {selectedIds.length > 0 && (
                   <div className="flex items-center justify-end gap-1">
                     <button 
                       onClick={() => onBulkRefresh?.(selectedIds)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-all"
                       title={`Refresh ${selectedIds.length} selected profiles`}
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -538,7 +538,7 @@ export default function ContactsView({
                           setSelectedIds([]);
                         }
                       }}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all"
                       title={`Delete ${selectedIds.length} selected contacts`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -548,7 +548,7 @@ export default function ContactsView({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
             {filteredContacts.map(contact => (
               <motion.tr 
                 key={contact.id}
@@ -561,13 +561,13 @@ export default function ContactsView({
                     type="checkbox" 
                     checked={selectedIds.includes(contact.id)}
                     onChange={() => toggleSelect(contact.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                   />
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-gray-900">{contact.name}</span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{contact.name}</span>
                     </div>
                     <div className="mt-1">
                       {getSocialIcons(contact, () => setSocialModal({ isOpen: true, contact }))}
@@ -598,17 +598,17 @@ export default function ContactsView({
                   ) : (
                     <div className="flex items-center justify-between group/company">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center">
-                          <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                        <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                          <Building2 className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                         </div>
-                        <span className="text-sm text-gray-600 truncate max-w-[120px]">{contact.company || 'Unknown'}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[120px]">{contact.company || 'Unknown'}</span>
                       </div>
                       <button 
                         onClick={() => {
                           setEditingCompanyId(contact.id);
                           setTempCompany(contact.company || "");
                         }}
-                        className="opacity-0 group-hover/company:opacity-100 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                        className="opacity-0 group-hover/company:opacity-100 p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-all"
                         title="Edit organization"
                       >
                         <Pencil className="w-3 h-3" />
@@ -616,7 +616,7 @@ export default function ContactsView({
                     </div>
                   )}
                 </td>
-                <td className="py-4 px-4 text-sm text-gray-600">{contact.title}</td>
+                <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-300">{contact.title}</td>
                 <td className="py-4 px-4">
                   <div className="relative">
                     <div className="flex items-center gap-1.5">
@@ -638,7 +638,7 @@ export default function ContactsView({
                             }
                           }
                         }}
-                        className={`p-2 rounded-lg transition-all ${expandedEducationId === contact.id ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50 hover:text-blue-600'}`}
+                        className={`p-2 rounded-lg transition-all ${expandedEducationId === contact.id ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-blue-600 dark:hover:text-blue-400'}`}
                         title={(!contact.educationHistory || contact.educationHistory.length === 0) ? "Add Education" : "View Education"}
                       >
                         {(!contact.educationHistory || contact.educationHistory.length === 0) ? (
@@ -661,10 +661,10 @@ export default function ContactsView({
                                              cat === 'M' ? 'bg-blue-700 text-white border-blue-700' : 
                                              'bg-blue-600 text-white border-blue-600';
                               } else {
-                                badgeStyles = 'bg-blue-50 text-blue-600 border-blue-100 hover:border-blue-300 hover:bg-blue-100 cursor-pointer';
+                                badgeStyles = 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/60 hover:border-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer';
                               }
                             } else {
-                              badgeStyles = 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed opacity-50';
+                              badgeStyles = 'bg-gray-50 dark:bg-gray-900 text-gray-300 dark:text-gray-600 border-gray-100 dark:border-gray-800 cursor-not-allowed opacity-50';
                             }
 
                             return (
@@ -689,17 +689,17 @@ export default function ContactsView({
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            className="absolute z-50 top-full left-0 mt-2 w-80 bg-white border border-gray-100 rounded-xl shadow-xl p-4 space-y-3"
+                            className="absolute z-50 top-full left-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl p-4 space-y-3"
                           >
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Education History</span>
+                                <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Education History</span>
                                 <button 
                                   onClick={(e) => { 
                                     e.stopPropagation(); 
                                     setEducationModal({ isOpen: true, contact });
                                   }} 
-                                  className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                                  className="p-1 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded transition-colors"
                                   title="Edit Education"
                                 >
                                   <Pencil className="w-3 h-3" />
@@ -716,9 +716,9 @@ export default function ContactsView({
                                       return next;
                                     });
                                   }} 
-                                  className="p-1 hover:bg-gray-100 rounded"
+                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                                 >
-                                  <X className="w-3 h-3 text-gray-400" />
+                                  <X className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                                 </button>
                               </div>
                             </div>
@@ -732,22 +732,22 @@ export default function ContactsView({
                                   .map(cat => {
                                     const edus = contact.educationHistory?.filter(edu => getEduCategory(edu.degree) === cat);
                                     return edus?.map((edu, i) => (
-                                      <div key={`${cat}-${i}`} className="text-xs text-gray-600 border-b border-gray-50 last:border-0 pb-3 last:pb-0">
+                                      <div key={`${cat}-${i}`} className="text-xs text-gray-600 dark:text-gray-300 border-b border-gray-50 dark:border-gray-800 last:border-0 pb-3 last:pb-0">
                                         <div className="flex flex-wrap gap-1 items-center">
-                                          {edu.year && <span className="font-bold text-gray-900">{edu.year}</span>}
-                                          {edu.year && <span className="text-gray-300">•</span>}
-                                          <span className="font-bold text-gray-900">{edu.school}</span>
+                                          {edu.year && <span className="font-bold text-gray-900 dark:text-gray-100">{edu.year}</span>}
+                                          {edu.year && <span className="text-gray-300 dark:text-gray-600">•</span>}
+                                          <span className="font-bold text-gray-900 dark:text-gray-100">{edu.school}</span>
                                         </div>
                                         <div className="mt-1 flex flex-wrap gap-1 items-center">
-                                          <span className="text-blue-600 font-semibold">{edu.degree}</span>
-                                          {edu.field && <span className="text-gray-300">•</span>}
-                                          {edu.field && <span className="italic text-gray-500">{edu.field}</span>}
+                                          <span className="text-blue-600 dark:text-blue-400 font-semibold">{edu.degree}</span>
+                                          {edu.field && <span className="text-gray-300 dark:text-gray-600">•</span>}
+                                          {edu.field && <span className="italic text-gray-500 dark:text-gray-400">{edu.field}</span>}
                                         </div>
                                       </div>
                                     ));
                                   })
                               ) : (
-                                <p className="text-xs text-gray-400 italic py-2">No detailed history available.</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic py-2">No detailed history available.</p>
                               )}
                             </div>
                           </motion.div>
@@ -757,16 +757,16 @@ export default function ContactsView({
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{(contact.location || 'Unknown').replace(/,?\s*USA$/i, '')}</span>
+                    <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{(contact.location || 'Unknown').replace(/,?\s*USA$/i, '')}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex flex-wrap gap-1 max-w-[200px] relative">
                     {contact.projects?.map((p, i) => (
-                      <span key={i} className="group/proj flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-medium">
+                      <span key={i} className="group/proj flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-[10px] font-medium">
                         {p}
-                        <button onClick={() => handleToggleProject(contact.id, p)} className="opacity-0 group-hover/proj:opacity-100 hover:text-red-600 transition-all">
+                        <button onClick={() => handleToggleProject(contact.id, p)} className="opacity-0 group-hover/proj:opacity-100 hover:text-red-600 dark:hover:text-red-400 transition-all">
                           <X className="w-2.5 h-2.5" />
                         </button>
                       </span>
@@ -774,19 +774,19 @@ export default function ContactsView({
                     <div className="relative">
                       <button 
                         onClick={() => setEditingProjectsId(editingProjectsId === contact.id ? null : contact.id)}
-                        className="px-2 py-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded text-[10px] font-medium transition-all flex items-center gap-1"
+                        className="px-2 py-0.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded text-[10px] font-medium transition-all flex items-center gap-1"
                       >
-                        <div className="w-3 h-3 bg-gray-100 rounded flex items-center justify-center">
-                          <Plus className="w-2 h-2 text-gray-400" />
+                        <div className="w-3 h-3 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                          <Plus className="w-2 h-2 text-gray-400 dark:text-gray-500" />
                         </div>
                         {contact.projects?.length ? 'Add' : 'No projects'}
                       </button>
                       
                       {editingProjectsId === contact.id && (
-                        <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-50 p-2 max-h-48 overflow-auto">
-                          <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider px-2 py-1 mb-1">Select Project</div>
+                        <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl z-50 p-2 max-h-48 overflow-auto">
+                          <div className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 py-1 mb-1">Select Project</div>
                           {projects.length === 0 ? (
-                            <div className="px-2 py-3 text-[10px] text-gray-400 italic text-center">No projects created yet</div>
+                            <div className="px-2 py-3 text-[10px] text-gray-400 dark:text-gray-500 italic text-center">No projects created yet</div>
                           ) : (
                             projects.map(project => (
                               <button
@@ -796,7 +796,7 @@ export default function ContactsView({
                                   setEditingProjectsId(null);
                                 }}
                                 className={`w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center justify-between ${
-                                  contact.projects?.includes(project.name) ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-600'
+                                  contact.projects?.includes(project.name) ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-50 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-300'
                                 }`}
                               >
                                 {project.name}
@@ -812,9 +812,9 @@ export default function ContactsView({
                 <td className="py-4 px-4">
                   <div className="flex flex-wrap gap-1 max-w-[200px]">
                     {contact.tags?.map((tag, i) => (
-                      <span key={i} className="group/tag flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold">
+                      <span key={i} className="group/tag flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold">
                         {tag}
-                        <button onClick={() => handleRemoveTag(contact.id, tag)} className="opacity-0 group-hover/tag:opacity-100 hover:text-red-600 transition-all">
+                        <button onClick={() => handleRemoveTag(contact.id, tag)} className="opacity-0 group-hover/tag:opacity-100 hover:text-red-600 dark:hover:text-red-400 transition-all">
                           <X className="w-2.5 h-2.5" />
                         </button>
                       </span>
@@ -830,20 +830,20 @@ export default function ContactsView({
                           onBlur={() => {
                             if (!newTag) setEditingTagsId(null);
                           }}
-                          className="w-20 px-1.5 py-0.5 text-[10px] border border-blue-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-20 px-1.5 py-0.5 text-[10px] border border-blue-200 dark:border-blue-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
                           placeholder="Tag name..."
                         />
-                        <button onClick={() => handleAddTag(contact.id)} className="p-0.5 text-blue-600 hover:bg-blue-50 rounded">
+                        <button onClick={() => handleAddTag(contact.id)} className="p-0.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded">
                           <Check className="w-3 h-3" />
                         </button>
                       </div>
                     ) : (
                       <button 
                         onClick={() => setEditingTagsId(contact.id)}
-                        className="px-2 py-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded text-[10px] font-medium transition-all flex items-center gap-1"
+                        className="px-2 py-0.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded text-[10px] font-medium transition-all flex items-center gap-1"
                       >
-                        <div className="w-3 h-3 bg-gray-100 rounded flex items-center justify-center">
-                          <Plus className="w-2 h-2 text-gray-400" />
+                        <div className="w-3 h-3 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                          <Plus className="w-2 h-2 text-gray-400 dark:text-gray-500" />
                         </div>
                         Add Tags
                       </button>
@@ -855,14 +855,14 @@ export default function ContactsView({
                     <button 
                       onClick={(e) => { e.stopPropagation(); onRefreshContact(contact.id); }}
                       disabled={refreshingIds.includes(contact.id)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
+                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-all disabled:opacity-50"
                       title="Refresh profile data"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${refreshingIds.includes(contact.id) ? 'animate-spin' : ''}`} />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); onDeleteContact(contact.id); }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-all"
                       title="Delete contact"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -875,8 +875,8 @@ export default function ContactsView({
         </table>
         {filteredContacts.length === 0 && (
           <div className="py-20 text-center">
-            <Users className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-            <p className="text-gray-400 text-sm italic">No contacts found</p>
+            <Users className="w-12 h-12 text-gray-200 dark:text-gray-700 mx-auto mb-4" />
+            <p className="text-gray-400 dark:text-gray-500 text-sm italic">No contacts found</p>
           </div>
         )}
       </div>
