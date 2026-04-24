@@ -26,6 +26,8 @@ export type NormalizedCandidate = {
   educationHistory: { school: string; degree: string; field: string; year: string }[];
   platform: 'linkedin' | 'github' | 'arxiv' | 'huggingface' | 'x' | 'other';
   url: string;
+  email?: string;
+  phone?: string;
   score: number;
   scoringBreakdown: { techMatch: number; contributionMatch: number; seniorityMatch: number; educationMatch: number };
   reasoning: string;

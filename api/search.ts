@@ -27,12 +27,15 @@ export default async function handler(req: any, res: any) {
     const querySpec = await geminiJdToQuerySpec({ jd_base64, jd_mime, context });
     const esQuery = buildPdlQuery(querySpec);
     const pdlResults = await searchPdl(esQuery);
-    const candidates = pdlResults.map((p, i) => normalizePdlPerson(p, sessionId || 'tmp', i));
+    const candidates = pdlResults
+      .map((p, i) => normalizePdlPerson(p, sessionId || 'tmp', i))
+      .filter(c => c.url && c.url.includes('linkedin.com'));
 
     const debugInfo = {
       pdlTotalReturned: pdlResults.length,
-      pdlWithLinkedin: pdlResults.filter(p => p?.linkedin_url).length,
-      pdlWithoutLinkedin: pdlResults.filter(p => !p?.linkedin_url).length,
+      pdlWithLinkedin: pdlResults.filter(p => p?.linkedin_url && String(p.linkedin_url).includes('linkedin.com')).length,
+      pdlWithoutLinkedin: pdlResults.filter(p => !p?.linkedin_url || !String(p.linkedin_url).includes('linkedin.com')).length,
+      candidatesAfterFilter: candidates.length,
       sampleRawPerson: pdlResults[0] ?? null,
     };
 

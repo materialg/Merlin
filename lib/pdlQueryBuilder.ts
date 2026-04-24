@@ -26,7 +26,7 @@ export function buildPdlQuery(spec: QuerySpec): object {
     must.push({ range: { inferred_years_experience: { gte: spec.years_experience_min } } });
   }
 
-  must.push({ exists: { field: 'linkedin_url' } });
+  must.push({ wildcard: { linkedin_url: '*linkedin.com*' } });
 
   if (spec.location?.postal_code) {
     const coords = getCoordsFromZip(spec.location.postal_code);

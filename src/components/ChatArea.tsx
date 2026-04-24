@@ -479,7 +479,7 @@ export default function ChatArea({
                       )}
                       {session.debug && (
                         <details className="text-[10px]">
-                          <summary className="font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600">PDL debug · {session.debug.pdlTotalReturned} returned, {session.debug.pdlWithLinkedin} w/ LinkedIn, {session.debug.pdlWithoutLinkedin} without</summary>
+                          <summary className="font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600">PDL debug · {session.debug.pdlTotalReturned} returned → {session.debug.candidatesAfterFilter ?? session.debug.pdlWithLinkedin} kept (w/ LinkedIn), {session.debug.pdlWithoutLinkedin} dropped</summary>
                           <pre className="mt-2 text-[11px] text-gray-700 leading-relaxed overflow-x-auto whitespace-pre-wrap break-words font-mono bg-white border border-gray-100 rounded p-3">
 {JSON.stringify(session.debug.sampleRawPerson, null, 2)}
                           </pre>

@@ -46,6 +46,18 @@ export function normalizePdlPerson(p: any, sessionId: string, idx: number): Norm
   const location = p.location_name
     || [p.location_locality, p.location_region, p.location_country].filter(Boolean).join(', ');
 
+  const email =
+    p.recommended_personal_email
+    || p.work_email
+    || (Array.isArray(p.personal_emails) ? p.personal_emails[0] : '')
+    || (Array.isArray(p.emails) && p.emails[0]?.address ? p.emails[0].address : '')
+    || '';
+
+  const phone =
+    p.mobile_phone
+    || (Array.isArray(p.phone_numbers) ? p.phone_numbers[0] : '')
+    || '';
+
   return {
     id: `${sessionId}-${idx}-${Date.now()}`,
     name,
@@ -57,6 +69,8 @@ export function normalizePdlPerson(p: any, sessionId: string, idx: number): Norm
     educationHistory,
     platform: 'linkedin',
     url,
+    email: email || undefined,
+    phone: phone || undefined,
     score,
     scoringBreakdown: { techMatch: 0, contributionMatch: 0, seniorityMatch: 0, educationMatch: 0 },
     reasoning: '',
