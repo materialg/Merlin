@@ -7,14 +7,17 @@ export type ExtractedJD = {
   location_terms: string[];
 };
 
-export type CseResult = {
+// One result item returned by the search provider (currently SerpAPI's
+// Google engine). `position` is SerpAPI's 1-based rank; we fall back to
+// array index + 1 when it's absent.
+export type SearchResult = {
   url: string;
   title: string;
   snippet: string;
-  pagemap?: any;
+  position?: number;
 };
 
-// A single issued Google CSE query, tagged with its target site so we can
+// A single issued search query, tagged with its target site so we can
 // rebuild per-site ranks after merging.
 export type IssuedQuery = {
   platform: SitePlatform;
@@ -31,7 +34,7 @@ export type QueryDebug = {
   status: 'ok' | 'error';
   resultCount: number;
   error?: string;
-  rawItemSample?: CseResult;
+  rawItemSample?: SearchResult;
 };
 
 export type DedupeDecision = {
@@ -57,8 +60,8 @@ export type NormalizedCandidate = {
   reasoning: string;
   impactSummary: string;
   socialLinks: { platform: string; url: string }[];
-  // Per-site CSE rank (1-based). Missing entries mean the candidate was
-  // absent from that site's results.
+  // Per-site rank (1-based). Missing entries mean the candidate was absent
+  // from that site's results.
   ranksBySite?: Partial<Record<SitePlatform, number>>;
   matchedSites?: SitePlatform[];
 };

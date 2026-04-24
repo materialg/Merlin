@@ -1,4 +1,4 @@
-import type { CseResult, NormalizedCandidate, SitePlatform } from './types.js';
+import type { SearchResult, NormalizedCandidate, SitePlatform } from './types.js';
 
 const SITE_SUFFIXES: Record<SitePlatform, RegExp[]> = {
   linkedin: [
@@ -44,10 +44,8 @@ export function normalizeCanonicalUrl(raw: string): string {
       return `https://${canonicalHost}/in/${slug}`;
     }
     if (platform === 'github') {
-      // Keep only the top-level user path: /{username}
       const seg = u.pathname.split('/').filter(Boolean)[0];
       if (!seg) return '';
-      // Skip obvious non-profile paths.
       if (/^(orgs|topics|search|about|pricing|features|marketplace|explore|events|collections|trending|enterprise|readme)$/i.test(seg)) return '';
       return `https://github.com/${seg.toLowerCase()}`;
     }
@@ -74,15 +72,12 @@ function stripSiteSuffix(title: string, platform: SitePlatform): string {
   return t.trim();
 }
 
-// Capitalization heuristic — name segments look like "Firstname Lastname",
-// not UPPER CASE and not snake_case or kebab-case.
 function looksLikePersonName(s: string): boolean {
   if (!s) return false;
   if (/[_/@#]/.test(s)) return false;
   if (s.length > 60) return false;
   const words = s.split(/\s+/).filter(Boolean);
   if (words.length < 1 || words.length > 5) return false;
-  // At least one word starts with an uppercase letter.
   return words.some(w => /^[A-ZÀ-Ÿ]/.test(w));
 }
 
@@ -111,26 +106,17 @@ function parseLinkedinTitle(title: string): { name: string; role: string; compan
 
 function parseGithubTitle(title: string, url: string): { name: string; handle: string } {
   const stripped = stripSiteSuffix(title, 'github');
-  // Common shapes:
-  //   "username (Real Name)"
-  //   "Real Name · username"
-  //   "Real Name (@username)"
-  //   "username"
   const parenMatch = stripped.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (parenMatch) {
     const left = parenMatch[1].trim();
     const right = parenMatch[2].trim().replace(/^@/, '');
-    // "Real Name (@handle)" → left=Real Name
     if (looksLikePersonName(left)) return { name: left, handle: right };
-    // "username (Real Name)" → right=Real Name
     if (looksLikePersonName(right)) return { name: right, handle: left };
   }
   const dotSplit = stripped.split(/\s+·\s+/).map(s => s.trim()).filter(Boolean);
   if (dotSplit.length >= 2 && looksLikePersonName(dotSplit[0])) {
     return { name: dotSplit[0], handle: dotSplit[1] };
   }
-  // Fallback: use URL username as handle, leave name blank (Gemini enrichment
-  // will fill it from the profile later).
   const handle = (() => {
     try { return new URL(url).pathname.split('/').filter(Boolean)[0] || ''; } catch { return ''; }
   })();
@@ -140,13 +126,10 @@ function parseGithubTitle(title: string, url: string): { name: string; handle: s
 
 function parseXTitle(title: string, url: string): { name: string; handle: string } {
   const stripped = stripSiteSuffix(title, 'x');
-  // "Real Name (@handle)" is the dominant shape.
   const atMatch = stripped.match(/^(.+?)\s*\(\s*@([A-Za-z0-9_]+)\s*\)\s*$/);
   if (atMatch) return { name: atMatch[1].trim(), handle: atMatch[2] };
-  // "@handle" alone.
   const handleOnly = stripped.match(/^@([A-Za-z0-9_]+)$/);
   if (handleOnly) return { name: '', handle: handleOnly[1] };
-  // Fallback: URL path segment as handle.
   const handle = (() => {
     try { return new URL(url).pathname.split('/').filter(Boolean)[0] || ''; } catch { return ''; }
   })();
@@ -154,8 +137,9 @@ function parseXTitle(title: string, url: string): { name: string; handle: string
   return { name: '', handle };
 }
 
-// Case-insensitive, diacritic-folded, punctuation-stripped name key used for
-// cross-site dedupe. Victor's call: collisions are rare enough to accept.
+// Case-insensitive, diacritic-folded, punctuation-stripped name key used
+// for cross-site dedupe. Victor's call: collisions are rare enough to
+// accept.
 export function normalizeNameKey(name: string): string {
   if (!name) return '';
   return name
@@ -166,20 +150,20 @@ export function normalizeNameKey(name: string): string {
     .trim();
 }
 
-export type NormalizedCseHit = {
+export type NormalizedSearchHit = {
   candidate: NormalizedCandidate;
   nameKey: string;
   platform: SitePlatform;
   rank: number; // 1-based within its own site
 };
 
-export function normalizeCseResult(
-  item: CseResult,
+export function normalizeSearchResult(
+  item: SearchResult,
   platform: SitePlatform,
   rank: number,
   sessionId: string,
   idx: number
-): NormalizedCseHit | null {
+): NormalizedSearchHit | null {
   const url = normalizeCanonicalUrl(item.url);
   if (!url) return null;
 
@@ -203,7 +187,6 @@ export function normalizeCseResult(
   }
 
   const nameKey = normalizeNameKey(name);
-  // If we couldn't get a name, we can't dedupe across sites — drop it.
   if (!nameKey) return null;
 
   const impactParts = [title, company ? `@ ${company}` : ''].filter(Boolean);

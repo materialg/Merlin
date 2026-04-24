@@ -524,7 +524,7 @@ export default function ChatArea({
                       {session.debug && (
                         <details className="text-[10px]">
                           <summary className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest cursor-pointer hover:text-gray-600 dark:hover:text-gray-300">
-                            CSE debug · {session.debug.totalRawItems ?? 0} raw → {session.debug.uniqueCandidates ?? 0} unique · {session.debug.multiSiteCandidates ?? 0} on 2+ sites
+                            Search debug · {session.debug.totalRawItems ?? 0} raw → {session.debug.uniqueCandidates ?? 0} unique · {session.debug.multiSiteCandidates ?? 0} on 2+ sites
                           </summary>
                           <div className="mt-2 space-y-2">
                             {Array.isArray(session.debug.queryDebug) && (

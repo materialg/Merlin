@@ -1,13 +1,13 @@
 import { geminiExtractJd } from '../lib/geminiExtractJd.js';
 import { buildXrayQueries } from '../lib/queryBuilder.js';
-import { searchCSE, CseError } from '../lib/cseClient.js';
-import { normalizeCseResult } from '../lib/normalizeCseResult.js';
+import { serpapiSearch, SerpApiError } from '../lib/serpapiClient.js';
+import { normalizeSearchResult } from '../lib/normalizeSearchResult.js';
 import { scoreCandidate } from '../lib/scorer.js';
 import type {
-  CseResult,
   IssuedQuery,
   NormalizedCandidate,
   QueryDebug,
+  SearchResult,
   SitePlatform,
 } from '../lib/types.js';
 
@@ -19,7 +19,7 @@ type Body = {
 };
 
 const MAX_CANDIDATES = 40;
-const RESULTS_PER_QUERY = 10; // Google CSE hard cap is 10 per call.
+const RESULTS_PER_QUERY = 20;
 
 type DedupeTrace = {
   nameKey: string;
@@ -51,14 +51,14 @@ export default async function handler(req: any, res: any) {
     console.log(`[api/search] built ${queries.length} X-ray queries:`);
     for (const q of queries) console.log('  ›', q.platform, q.q);
 
-    console.log(`[api/search] running ${queries.length} CSE queries in parallel (${RESULTS_PER_QUERY} results each)...`);
-    const cseResponses = await Promise.allSettled(
-      queries.map(q => searchCSE(q.q, RESULTS_PER_QUERY))
+    console.log(`[api/search] running ${queries.length} SerpAPI queries in parallel (${RESULTS_PER_QUERY} results each)...`);
+    const searchResponses = await Promise.allSettled(
+      queries.map(q => serpapiSearch(q.q, RESULTS_PER_QUERY))
     );
 
     const queryDebug: QueryDebug[] = [];
-    const perQueryResults: { query: IssuedQuery; items: CseResult[] }[] = [];
-    for (const [i, r] of cseResponses.entries()) {
+    const perQueryResults: { query: IssuedQuery; items: SearchResult[] }[] = [];
+    for (const [i, r] of searchResponses.entries()) {
       const q = queries[i];
       if (r.status === 'fulfilled') {
         queryDebug.push({
@@ -98,8 +98,9 @@ export default async function handler(req: any, res: any) {
     for (const { query, items } of perQueryResults) {
       totalRawItems += items.length;
       for (let i = 0; i < items.length; i++) {
-        const rank = i + 1;
-        const hit = normalizeCseResult(items[i], query.platform, rank, sessionId || 'tmp', i);
+        // Prefer SerpAPI's reported position; fall back to array index + 1.
+        const rank = typeof items[i].position === 'number' ? items[i].position! : i + 1;
+        const hit = normalizeSearchResult(items[i], query.platform, rank, sessionId || 'tmp', i);
         if (!hit) continue;
         totalNormalized++;
 
@@ -113,7 +114,6 @@ export default async function handler(req: any, res: any) {
           continue;
         }
 
-        // Merge: add this site's URL/rank onto the existing candidate.
         const existingLinks = existing.socialLinks || [];
         const hasLink = existingLinks.some(l => l.url === hit.candidate.url);
         const mergedLinks = hasLink
@@ -121,7 +121,6 @@ export default async function handler(req: any, res: any) {
           : [...existingLinks, { platform: query.platform, url: hit.candidate.url }];
 
         const mergedRanks = { ...(existing.ranksBySite || {}) };
-        // Keep the best (lowest) rank we've seen for this site.
         const prevRank = mergedRanks[query.platform];
         mergedRanks[query.platform] = prevRank ? Math.min(prevRank, rank) : rank;
 
@@ -129,8 +128,6 @@ export default async function handler(req: any, res: any) {
           new Set([...(existing.matchedSites || []), query.platform])
         );
 
-        // Prefer whichever hit carries the longer bio/title (LinkedIn snippets
-        // tend to be richer than GitHub/X) so the card has useful text.
         const preferLonger = (a: string, b: string) => (b && b.length > a.length ? b : a);
         const merged: NormalizedCandidate = {
           ...existing,
@@ -186,7 +183,7 @@ export default async function handler(req: any, res: any) {
     };
 
     const debugInfo = {
-      pipeline: 'cse',
+      pipeline: 'serpapi',
       extractedJd: wireJd,
       queries,
       queryDebug,
@@ -200,13 +197,13 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({
       querySpec: wireJd,
-      esQuery: { pipeline: 'cse', queries },
+      esQuery: { pipeline: 'serpapi', queries },
       candidates: scored,
       debug: debugInfo,
     });
   } catch (err: any) {
     console.error('[api/search] failed:', err);
-    if (err instanceof CseError) {
+    if (err instanceof SerpApiError) {
       return res
         .status(err.status >= 400 && err.status < 600 ? err.status : 500)
         .json({ error: err.message });
