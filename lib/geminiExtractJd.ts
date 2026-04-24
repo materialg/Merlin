@@ -4,6 +4,29 @@ import levels from '../data/pdl/levels.json' with { type: 'json' };
 
 const LEVELS = levels as string[];
 
+async function callWithRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 800): Promise<T> {
+  let lastErr: any;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const msg = String(err?.message || err || '');
+      const retryable =
+        msg.includes('UNAVAILABLE') ||
+        msg.includes('"code":503') ||
+        msg.includes('"code":429') ||
+        err?.status === 503 ||
+        err?.status === 429;
+      if (!retryable || i === attempts - 1) throw err;
+      const delay = baseDelayMs * Math.pow(2, i);
+      console.warn(`[gemini] retryable error (${msg.slice(0, 80)}); waiting ${delay}ms before retry ${i + 2}/${attempts}`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export type GeminiExtractArgs = {
   jd_base64?: string;
   jd_mime?: string;
@@ -41,7 +64,7 @@ Be specific. Favor terms likely to appear verbatim on a LinkedIn profile headlin
   if (parts.length === 0) throw new Error('No JD or context provided to Gemini extract');
   parts.push({ text: 'Extract the JD signals as JSON.' });
 
-  const response = await ai.models.generateContent({
+  const response = await callWithRetry(() => ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: [{ parts }],
     config: {
@@ -59,7 +82,7 @@ Be specific. Favor terms likely to appear verbatim on a LinkedIn profile headlin
         required: ['titles', 'skills', 'companies', 'seniority'],
       },
     },
-  } as any);
+  } as any));
 
   const text = (response as any).text as string;
   let parsed: ExtractedJD;
