@@ -1,4 +1,4 @@
-import type { ExtractedJD } from './types';
+import type { ExtractedJD } from './types.js';
 
 const SITE = 'site:linkedin.com/in/';
 

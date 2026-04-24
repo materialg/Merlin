@@ -1,4 +1,4 @@
-import type { NormalizedCandidate, CseResult } from './types';
+import type { NormalizedCandidate, CseResult } from './types.js';
 
 export function normalizeLinkedinUrl(raw: string): string {
   if (!raw) return '';

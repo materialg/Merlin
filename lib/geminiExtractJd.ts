@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import type { ExtractedJD } from './types';
+import type { ExtractedJD } from './types.js';
 import levels from '../data/pdl/levels.json';
 
 const LEVELS = levels as string[];

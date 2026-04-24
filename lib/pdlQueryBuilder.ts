@@ -1,5 +1,5 @@
-import type { QuerySpec } from './types';
-import { getCoordsFromZip } from './zipLookup';
+import type { QuerySpec } from './types.js';
+import { getCoordsFromZip } from './zipLookup.js';
 
 const DEFAULT_RADIUS_MILES = 25;
 

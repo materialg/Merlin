@@ -1,4 +1,4 @@
-import type { NormalizedCandidate, ExtractedJD } from './types';
+import type { NormalizedCandidate, ExtractedJD } from './types.js';
 
 const norm = (s: string) => s.toLowerCase().trim();
 const contains = (haystack: string, needle: string) =>

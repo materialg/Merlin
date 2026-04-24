@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import type { QuerySpec } from './types';
+import type { QuerySpec } from './types.js';
 import roles from '../data/pdl/roles.json';
 import subRoles from '../data/pdl/sub_roles.json';
 import levels from '../data/pdl/levels.json';

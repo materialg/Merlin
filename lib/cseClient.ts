@@ -1,4 +1,4 @@
-import type { CseResult } from './types';
+import type { CseResult } from './types.js';
 
 const CSE_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
 

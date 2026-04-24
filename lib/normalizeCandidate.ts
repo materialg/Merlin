@@ -1,4 +1,4 @@
-import type { NormalizedCandidate } from './types';
+import type { NormalizedCandidate } from './types.js';
 
 function inferDegreeCategory(raw: string): string {
   if (!raw) return '';

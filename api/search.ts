@@ -1,9 +1,9 @@
-import { geminiExtractJd } from '../lib/geminiExtractJd';
-import { buildXrayQueries } from '../lib/queryBuilder';
-import { searchCSE, CseError } from '../lib/cseClient';
-import { normalizeCseResult, normalizeLinkedinUrl } from '../lib/normalizeCseResult';
-import { scoreCandidate } from '../lib/scorer';
-import type { CseResult } from '../lib/types';
+import { geminiExtractJd } from '../lib/geminiExtractJd.js';
+import { buildXrayQueries } from '../lib/queryBuilder.js';
+import { searchCSE, CseError } from '../lib/cseClient.js';
+import { normalizeCseResult, normalizeLinkedinUrl } from '../lib/normalizeCseResult.js';
+import { scoreCandidate } from '../lib/scorer.js';
+import type { CseResult } from '../lib/types.js';
 
 type Body = {
   jd_base64?: string;
