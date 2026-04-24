@@ -1,3 +1,19 @@
+export type ExtractedJD = {
+  title?: string;
+  titles: string[];
+  skills: string[];
+  companies: string[];
+  seniority: string[];
+  location?: string;
+};
+
+export type CseResult = {
+  url: string;
+  title: string;
+  snippet: string;
+  pagemap?: any;
+};
+
 export type QuerySpec = {
   title?: string;
   skill_clusters: string[][];
