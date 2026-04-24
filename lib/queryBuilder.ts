@@ -35,6 +35,9 @@ export function buildXrayQueries(jd: ExtractedJD): IssuedQuery[] {
     .filter(Boolean);
 
   const locationGroup = orGroup(jd.location_terms || []);
+  // Region group is AND'd against the city group to block profiles that
+  // mention the target city incidentally while living elsewhere.
+  const regionGroup = orGroup(jd.location_region_terms || []);
 
   const queries: IssuedQuery[] = [];
   for (const { platform, domain } of SITES) {
@@ -42,6 +45,7 @@ export function buildXrayQueries(jd: ExtractedJD): IssuedQuery[] {
       `site:${domain}`,
       ...clusterGroups,
       locationGroup,
+      regionGroup,
     ].filter(Boolean);
 
     const q = parts.join(' ').replace(/\s+/g, ' ').trim();

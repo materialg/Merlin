@@ -464,7 +464,7 @@ export default function ChatArea({
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Query plan</span>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {Array.isArray(session.querySpec.keyword_clusters) ? session.querySpec.keyword_clusters.length : 0} clusters · {Array.isArray(session.querySpec.location_terms) ? session.querySpec.location_terms.length : 0} locations · {Array.isArray(session.esQuery?.queries) ? session.esQuery.queries.length : 0} queries
+                            {Array.isArray(session.querySpec.keyword_clusters) ? session.querySpec.keyword_clusters.length : 0} clusters · {Array.isArray(session.querySpec.location_terms) ? session.querySpec.location_terms.length : 0} cities · {Array.isArray(session.querySpec.location_region_terms) ? session.querySpec.location_region_terms.length : 0} regions · {Array.isArray(session.esQuery?.queries) ? session.esQuery.queries.length : 0} queries
                           </span>
                         </div>
                         <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform group-open:rotate-180 shrink-0" />
@@ -494,9 +494,22 @@ export default function ChatArea({
 
                       {Array.isArray(session.querySpec.location_terms) && session.querySpec.location_terms.length > 0 && (
                         <div className="space-y-2">
-                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Location terms</span>
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">City / metro</span>
                           <div className="flex flex-wrap gap-1.5">
                             {session.querySpec.location_terms.map((term: string, i: number) => (
+                              <span key={i} className="text-[11px] font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/60 rounded px-2 py-0.5">
+                                {term}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(session.querySpec.location_region_terms) && session.querySpec.location_region_terms.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">State / country (AND'd)</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {session.querySpec.location_region_terms.map((term: string, i: number) => (
                               <span key={i} className="text-[11px] font-mono bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/60 rounded px-2 py-0.5">
                                 {term}
                               </span>

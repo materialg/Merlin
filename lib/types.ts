@@ -2,9 +2,14 @@ export type SitePlatform = 'linkedin' | 'github' | 'x';
 
 // What Gemini extracts from the JD. No titles, companies, or seniority as
 // targets — see geminiExtractJd.ts for the rationale.
+//
+// Location is split in two so the dork query can AND city against state/country,
+// stopping international leakage where a LinkedIn page mentions the target city
+// incidentally (past job, client, conference) without the candidate living there.
 export type ExtractedJD = {
   keyword_clusters: string[][];
   location_terms: string[];
+  location_region_terms: string[];
 };
 
 // One result item returned by the search provider (currently SerpAPI's
